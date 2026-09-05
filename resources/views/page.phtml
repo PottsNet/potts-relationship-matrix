@@ -1,0 +1,671 @@
+<?php
+
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+
+/** @var string $title */
+/** @var \Fisharebest\Webtrees\Tree $tree */
+/** @var Individual $route_individual */
+/** @var array<int,Individual|null> $slots */
+/** @var array<int,Individual> $selected */
+/** @var array<int,array<int,array<string,mixed>|null>> $matrix */
+/** @var string $scope */
+/** @var int $recursion */
+/** @var int $max_people */
+/** @var string $action_url */
+/** @var array<string,mixed>|null $detail */
+/** @var string $detail_key */
+/** @var array<string,string> $detail_urls */
+/** @var string $clear_detail_url */
+/** @var string $graph_json */
+/** @var string $version */
+?>
+
+<style>
+.potts-rm-page {
+    --potts-rm-border: rgba(110, 110, 110, .28);
+    --potts-rm-soft: rgba(127, 127, 127, .08);
+    --potts-rm-accent: var(--bs-primary, #0d6efd);
+    --potts-rm-success: var(--bs-success, #198754);
+    max-width: 1600px;
+    margin: 0 auto;
+}
+.potts-rm-intro {
+    max-width: 980px;
+}
+.potts-rm-panel {
+    border: 1px solid var(--potts-rm-border);
+    border-radius: .85rem;
+    background: var(--bs-body-bg, #fff);
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+}
+.potts-rm-options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .85rem 1rem;
+}
+.potts-rm-person-slot {
+    min-width: 0;
+}
+.potts-rm-person-slot label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: .3rem;
+}
+.potts-rm-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1rem;
+    align-items: end;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--potts-rm-border);
+}
+.potts-rm-control {
+    min-width: 220px;
+}
+.potts-rm-control label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: .3rem;
+}
+.potts-rm-note {
+    font-size: .92rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+.potts-rm-table-wrap {
+    width: 100%;
+    overflow: auto;
+    border: 1px solid var(--potts-rm-border);
+    border-radius: .75rem;
+}
+.potts-rm-table {
+    width: max-content;
+    min-width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.potts-rm-table th,
+.potts-rm-table td {
+    border-right: 1px solid var(--potts-rm-border);
+    border-bottom: 1px solid var(--potts-rm-border);
+    padding: .55rem;
+    vertical-align: middle;
+}
+.potts-rm-table tr:last-child th,
+.potts-rm-table tr:last-child td {
+    border-bottom: 0;
+}
+.potts-rm-table th:last-child,
+.potts-rm-table td:last-child {
+    border-right: 0;
+}
+.potts-rm-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    min-width: 190px;
+    background: var(--bs-body-bg, #fff);
+    text-align: center;
+}
+.potts-rm-table thead th:first-child {
+    left: 0;
+    z-index: 5;
+    min-width: 220px;
+}
+.potts-rm-table tbody th {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 220px;
+    max-width: 260px;
+    background: var(--bs-body-bg, #fff);
+}
+.potts-rm-number {
+    display: inline-flex;
+    width: 1.7rem;
+    height: 1.7rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    margin-right: .4rem;
+    background: var(--potts-rm-accent);
+    color: #fff;
+    font-size: .82rem;
+    font-weight: 700;
+}
+.potts-rm-cell {
+    min-width: 190px;
+    text-align: center;
+    background: var(--potts-rm-soft);
+}
+.potts-rm-cell-self {
+    color: var(--bs-secondary-color, #6c757d);
+    background: transparent;
+}
+.potts-rm-cell-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    border-radius: .55rem;
+    padding: .45rem;
+}
+.potts-rm-cell-link:hover,
+.potts-rm-cell-link:focus {
+    background: rgba(13, 110, 253, .08);
+    outline: none;
+}
+.potts-rm-cell-name {
+    display: block;
+    font-weight: 700;
+    color: var(--bs-emphasis-color, #212529);
+}
+.potts-rm-cell-meta {
+    display: block;
+    margin-top: .2rem;
+    font-size: .82rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+.potts-rm-detail-head {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: start;
+    flex-wrap: wrap;
+}
+.potts-rm-detail-summary {
+    font-size: 1.05rem;
+}
+.potts-rm-paths {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: .75rem;
+    margin-top: 1rem;
+}
+.potts-rm-path {
+    border: 1px solid var(--potts-rm-border);
+    border-radius: .65rem;
+    padding: .75rem;
+    background: var(--potts-rm-soft);
+}
+.potts-rm-path-title {
+    font-weight: 700;
+    margin-bottom: .25rem;
+}
+.potts-rm-badge {
+    display: inline-block;
+    border: 1px solid var(--potts-rm-border);
+    border-radius: 999px;
+    padding: .12rem .5rem;
+    margin: .2rem .25rem 0 0;
+    font-size: .78rem;
+    background: var(--bs-body-bg, #fff);
+}
+.potts-rm-graph-shell {
+    margin-top: 1rem;
+    border: 1px solid var(--potts-rm-border);
+    border-radius: .75rem;
+    overflow: auto;
+    min-height: 430px;
+    background: var(--bs-body-bg, #fff);
+}
+#potts-rm-graph {
+    display: block;
+    width: 100%;
+    min-width: 760px;
+    min-height: 430px;
+}
+.potts-rm-edge {
+    stroke: var(--bs-secondary-color, #6c757d);
+    stroke-width: 1.7;
+    opacity: .62;
+}
+.potts-rm-family-node {
+    fill: var(--bs-secondary-bg, #e9ecef);
+    stroke: var(--bs-secondary-color, #6c757d);
+    stroke-width: 1.3;
+}
+.potts-rm-person-node rect {
+    fill: var(--bs-body-bg, #fff);
+    stroke: var(--potts-rm-accent);
+    stroke-width: 1.5;
+}
+.potts-rm-person-node.endpoint rect {
+    stroke-width: 3;
+}
+.potts-rm-person-node.common rect {
+    stroke: var(--potts-rm-success);
+    stroke-width: 3;
+}
+.potts-rm-person-node text {
+    fill: var(--bs-body-color, #212529);
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+}
+.potts-rm-person-node[data-url] {
+    cursor: pointer;
+}
+.potts-rm-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: .65rem;
+    font-size: .86rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+.potts-rm-legend-key::before {
+    content: '';
+    display: inline-block;
+    width: 1.2rem;
+    height: .65rem;
+    margin-right: .35rem;
+    vertical-align: middle;
+    border: 2px solid var(--potts-rm-accent);
+    border-radius: .15rem;
+}
+.potts-rm-legend-key.common::before {
+    border-color: var(--potts-rm-success);
+}
+@media (max-width: 900px) {
+    .potts-rm-options-grid {
+        grid-template-columns: 1fr;
+    }
+    .potts-rm-panel {
+        padding: .8rem;
+    }
+}
+</style>
+
+<div class="container-fluid potts-rm-page">
+    <h2><?= e($title) ?></h2>
+
+    <div class="potts-rm-intro mb-3">
+        <p class="mb-1">
+            <?= I18N::translate('Compare a group of people, inspect multiple relationship paths and open a merged graphical view of the connections between any pair.') ?>
+        </p>
+        <div class="potts-rm-note">
+            <?= I18N::translate('Common-ancestor mode follows parent-child links recorded in the GEDCOM. It should not be interpreted as proof of a genetic relationship where adoption, fostering or other parentage types are recorded.') ?>
+        </div>
+    </div>
+
+    <form method="get" action="<?= e($action_url) ?>" class="potts-rm-panel">
+        <h3 class="h5 mb-3"><?= I18N::translate('People in this matrix') ?></h3>
+
+        <div class="potts-rm-options-grid">
+            <?php for ($i = 1; $i <= $max_people; $i++) : ?>
+                <div class="potts-rm-person-slot">
+                    <label for="potts-rm-person-<?= $i ?>">
+                        <?= I18N::translate('Person %s', I18N::number($i)) ?>
+                    </label>
+                    <?= view('components/select-individual', [
+                        'name' => 'p' . $i,
+                        'id' => 'potts-rm-person-' . $i,
+                        'individual' => $slots[$i] ?? null,
+                        'tree' => $tree,
+                        'required' => $i <= 2,
+                    ]) ?>
+                </div>
+            <?php endfor ?>
+        </div>
+
+        <div class="potts-rm-controls">
+            <div class="potts-rm-control">
+                <label for="potts-rm-scope"><?= I18N::translate('Relationship mode') ?></label>
+                <select class="form-select" id="potts-rm-scope" name="scope">
+                    <option value="blood" <?= $scope === 'blood' ? 'selected' : '' ?>>
+                        <?= I18N::translate('Common ancestors (no spouse-only route)') ?>
+                    </option>
+                    <option value="all" <?= $scope === 'all' ? 'selected' : '' ?>>
+                        <?= I18N::translate('All family links (may include spouses)') ?>
+                    </option>
+                </select>
+            </div>
+
+            <div class="potts-rm-control" id="potts-rm-recursion-control">
+                <label for="potts-rm-recursion"><?= I18N::translate('Alternative-path search') ?></label>
+                <select class="form-select" id="potts-rm-recursion" name="recursion">
+                    <option value="0" <?= $recursion === 0 ? 'selected' : '' ?>><?= I18N::translate('Closest paths only') ?></option>
+                    <option value="1" <?= $recursion === 1 ? 'selected' : '' ?>><?= I18N::translate('Find alternatives') ?></option>
+                    <option value="2" <?= $recursion === 2 ? 'selected' : '' ?>><?= I18N::translate('Find more alternatives') ?></option>
+                </select>
+                <div class="potts-rm-note mt-1"><?= I18N::translate('Used only for all-family-link searches.') ?></div>
+            </div>
+
+            <div>
+                <button class="btn btn-primary" type="submit">
+                    <?= I18N::translate('Build relationship matrix') ?>
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <?php if (count($selected) < 2) : ?>
+        <div class="alert alert-info">
+            <?= I18N::translate('Select at least two people to build the matrix.') ?>
+        </div>
+    <?php else : ?>
+        <section class="potts-rm-panel">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h3 class="h5 mb-1"><?= I18N::translate('Relationship matrix') ?></h3>
+                    <div class="potts-rm-note">
+                        <?php if ($scope === 'blood') : ?>
+                            <?= I18N::translate('Cells show the closest common-ancestor relationship and the number of distinct ancestral paths found within the search limit.') ?>
+                        <?php else : ?>
+                            <?= I18N::translate('Cells show the closest family-link relationship and the alternative paths found at the selected search depth.') ?>
+                        <?php endif ?>
+                    </div>
+                </div>
+                <span class="potts-rm-badge">v<?= e($version) ?></span>
+            </div>
+
+            <div class="potts-rm-table-wrap">
+                <table class="potts-rm-table">
+                    <thead>
+                    <tr>
+                        <th><?= I18N::translate('Person') ?></th>
+                        <?php foreach ($selected as $index => $individual) : ?>
+                            <th>
+                                <span class="potts-rm-number"><?= I18N::number($index + 1) ?></span>
+                                <?= $individual->fullName() ?>
+                            </th>
+                        <?php endforeach ?>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($selected as $row => $individual) : ?>
+                        <tr>
+                            <th>
+                                <span class="potts-rm-number"><?= I18N::number($row + 1) ?></span>
+                                <?= $individual->fullName() ?>
+                            </th>
+                            <?php foreach ($selected as $column => $other) : ?>
+                                <?php $cell = $matrix[$row][$column] ?? null ?>
+                                <?php if (!is_array($cell)) : ?>
+                                    <td class="potts-rm-cell">—</td>
+                                <?php elseif ($cell['self']) : ?>
+                                    <td class="potts-rm-cell potts-rm-cell-self">—</td>
+                                <?php else : ?>
+                                    <?php $url = $detail_urls[$cell['pair_key']] ?? '' ?>
+                                    <td class="potts-rm-cell">
+                                        <a class="potts-rm-cell-link" href="<?= e($url) ?>#potts-rm-detail">
+                                            <span class="potts-rm-cell-name"><?= e((string) $cell['name']) ?></span>
+                                            <?php if ((int) $cell['path_count'] > 0) : ?>
+                                                <span class="potts-rm-cell-meta">
+                                                    <?= I18N::plural('%s path found', '%s paths found', (int) $cell['path_count'], I18N::number((int) $cell['path_count'])) ?>
+                                                    <?php if ($cell['notation'] !== '') : ?>
+                                                        · <?= e((string) $cell['notation']) ?>
+                                                    <?php endif ?>
+                                                </span>
+                                            <?php endif ?>
+                                        </a>
+                                    </td>
+                                <?php endif ?>
+                            <?php endforeach ?>
+                        </tr>
+                    <?php endforeach ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    <?php endif ?>
+
+    <?php if (is_array($detail)) : ?>
+        <section class="potts-rm-panel" id="potts-rm-detail">
+            <div class="potts-rm-detail-head">
+                <div>
+                    <h3 class="h4 mb-1">
+                        <?= I18N::translate('Relationship paths') ?>:
+                        <?= e((string) $detail['first_name']) ?> → <?= e((string) $detail['second_name']) ?>
+                    </h3>
+                    <div class="potts-rm-detail-summary">
+                        <?php if ((int) $detail['path_count'] === 0) : ?>
+                            <?= I18N::translate('No relationship path was found in the selected mode.') ?>
+                        <?php else : ?>
+                            <?= I18N::plural('%s distinct path found', '%s distinct paths found', (int) $detail['path_count'], I18N::number((int) $detail['path_count'])) ?>
+                            <?php if (!empty($detail['truncated'])) : ?>
+                                <span class="potts-rm-note">(<?= I18N::translate('search limit reached') ?>)</span>
+                            <?php endif ?>
+                        <?php endif ?>
+                    </div>
+                </div>
+                <a class="btn btn-outline-secondary btn-sm" href="<?= e($clear_detail_url) ?>">
+                    <?= I18N::translate('Close detail') ?>
+                </a>
+            </div>
+
+            <?php if ((int) $detail['path_count'] > 0) : ?>
+                <h4 class="h5 mt-4 mb-2"><?= I18N::translate('Merged relationship graph') ?></h4>
+                <div class="potts-rm-note">
+                    <?= I18N::translate('The graph merges people and families that occur in several paths. Green outlines identify common ancestors in common-ancestor mode.') ?>
+                </div>
+                <div class="potts-rm-graph-shell">
+                    <svg id="potts-rm-graph" role="img" aria-label="<?= e(I18N::translate('Relationship network graph')) ?>"></svg>
+                </div>
+                <div class="potts-rm-legend">
+                    <span class="potts-rm-legend-key"><?= I18N::translate('Selected endpoint') ?></span>
+                    <span class="potts-rm-legend-key common"><?= I18N::translate('Common ancestor') ?></span>
+                </div>
+
+                <h4 class="h5 mt-4"><?= I18N::translate('Paths') ?></h4>
+                <div class="potts-rm-paths">
+                    <?php foreach (array_slice($detail['paths'], 0, 24) as $index => $path) : ?>
+                        <article class="potts-rm-path">
+                            <div class="potts-rm-path-title">
+                                <?= I18N::translate('Path %s', I18N::number($index + 1)) ?> — <?= e((string) $path['name']) ?>
+                            </div>
+                            <span class="potts-rm-badge">
+                                <?= I18N::plural('%s family step', '%s family steps', (int) $path['steps'], I18N::number((int) $path['steps'])) ?>
+                            </span>
+                            <?php if (is_int($path['l1'] ?? null) && is_int($path['l2'] ?? null)) : ?>
+                                <span class="potts-rm-badge">
+                                    <?= e((string) $path['l1']) ?> ↑ / <?= e((string) $path['l2']) ?> ↓
+                                </span>
+                            <?php endif ?>
+                            <?php if (is_string($path['common_ancestor_name'] ?? null) && $path['common_ancestor_name'] !== '') : ?>
+                                <div class="mt-2">
+                                    <strong><?= I18N::translate('Common ancestor') ?>:</strong>
+                                    <?= e((string) $path['common_ancestor_name']) ?>
+                                </div>
+                            <?php endif ?>
+                            <?php if (!empty($path['contains_spouse_link'])) : ?>
+                                <div class="potts-rm-note mt-2"><?= I18N::translate('This route includes a spouse-to-spouse family link.') ?></div>
+                            <?php endif ?>
+                        </article>
+                    <?php endforeach ?>
+                </div>
+            <?php endif ?>
+        </section>
+    <?php endif ?>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const scope = document.getElementById('potts-rm-scope');
+    const recursionControl = document.getElementById('potts-rm-recursion-control');
+
+    function updateRecursionVisibility() {
+        if (!scope || !recursionControl) {
+            return;
+        }
+        recursionControl.style.opacity = scope.value === 'all' ? '1' : '.55';
+    }
+
+    if (scope) {
+        scope.addEventListener('change', updateRecursionVisibility);
+        updateRecursionVisibility();
+    }
+
+    const data = <?= $graph_json ?>;
+    const svg = document.getElementById('potts-rm-graph');
+
+    if (!svg || !data || !Array.isArray(data.nodes) || data.nodes.length === 0) {
+        return;
+    }
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const nodeMap = new Map(data.nodes.map(node => [node.id, node]));
+    const adjacency = new Map();
+
+    data.nodes.forEach(node => adjacency.set(node.id, []));
+    data.edges.forEach(edge => {
+        if (adjacency.has(edge.from) && adjacency.has(edge.to)) {
+            adjacency.get(edge.from).push(edge.to);
+            adjacency.get(edge.to).push(edge.from);
+        }
+    });
+
+    const level = new Map();
+    const queue = [data.first];
+    level.set(data.first, 0);
+
+    for (let cursor = 0; cursor < queue.length; cursor++) {
+        const current = queue[cursor];
+        const currentLevel = level.get(current) || 0;
+        (adjacency.get(current) || []).forEach(next => {
+            if (!level.has(next)) {
+                level.set(next, currentLevel + 1);
+                queue.push(next);
+            }
+        });
+    }
+
+    let maxLevel = 0;
+    data.nodes.forEach(node => {
+        if (!level.has(node.id)) {
+            level.set(node.id, maxLevel + 1);
+        }
+        maxLevel = Math.max(maxLevel, level.get(node.id));
+    });
+
+    const columns = new Map();
+    data.nodes.forEach(node => {
+        const column = level.get(node.id) || 0;
+        if (!columns.has(column)) {
+            columns.set(column, []);
+        }
+        columns.get(column).push(node);
+    });
+
+    columns.forEach(nodes => {
+        nodes.sort((a, b) => {
+            if (a.type !== b.type) {
+                return a.type === 'individual' ? -1 : 1;
+            }
+            return String(a.label).localeCompare(String(b.label));
+        });
+    });
+
+    const columnWidth = 205;
+    const side = 115;
+    const width = Math.max(760, side * 2 + maxLevel * columnWidth);
+    let maxRows = 1;
+    columns.forEach(nodes => { maxRows = Math.max(maxRows, nodes.length); });
+    const height = Math.max(430, 110 + maxRows * 100);
+    const positions = new Map();
+
+    columns.forEach((nodes, column) => {
+        nodes.forEach((node, index) => {
+            positions.set(node.id, {
+                x: side + column * columnWidth,
+                y: ((index + 1) * height) / (nodes.length + 1)
+            });
+        });
+    });
+
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+    function el(name, attrs) {
+        const element = document.createElementNS(NS, name);
+        Object.entries(attrs || {}).forEach(([key, value]) => element.setAttribute(key, String(value)));
+        return element;
+    }
+
+    data.edges.forEach(edge => {
+        const from = positions.get(edge.from);
+        const to = positions.get(edge.to);
+        if (!from || !to) {
+            return;
+        }
+        svg.appendChild(el('line', {
+            x1: from.x,
+            y1: from.y,
+            x2: to.x,
+            y2: to.y,
+            class: 'potts-rm-edge'
+        }));
+    });
+
+    data.nodes.forEach(node => {
+        const pos = positions.get(node.id);
+        if (!pos) {
+            return;
+        }
+
+        if (node.type === 'family') {
+            const group = el('g', {transform: `translate(${pos.x} ${pos.y})`});
+            group.appendChild(el('rect', {
+                x: -8,
+                y: -8,
+                width: 16,
+                height: 16,
+                rx: 2,
+                transform: 'rotate(45)',
+                class: 'potts-rm-family-node'
+            }));
+            const title = el('title');
+            title.textContent = node.label || 'Family';
+            group.appendChild(title);
+            svg.appendChild(group);
+            return;
+        }
+
+        const classes = ['potts-rm-person-node'];
+        if (node.endpoint) classes.push('endpoint');
+        if (node.common) classes.push('common');
+
+        const group = el('g', {
+            transform: `translate(${pos.x} ${pos.y})`,
+            class: classes.join(' ')
+        });
+
+        if (node.url) {
+            group.setAttribute('data-url', node.url);
+            group.setAttribute('tabindex', '0');
+            group.setAttribute('role', 'link');
+        }
+
+        group.appendChild(el('rect', {x: -82, y: -27, width: 164, height: 54, rx: 8}));
+        const text = el('text', {x: 0, y: 4, 'text-anchor': 'middle'});
+        const label = String(node.label || node.xref || '');
+        text.textContent = label.length > 24 ? label.slice(0, 23) + '…' : label;
+        group.appendChild(text);
+
+        const title = el('title');
+        title.textContent = label;
+        group.appendChild(title);
+
+        function openNode() {
+            if (node.url) {
+                window.location.href = node.url;
+            }
+        }
+
+        group.addEventListener('click', openNode);
+        group.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openNode();
+            }
+        });
+
+        svg.appendChild(group);
+    });
+})();
+</script>
