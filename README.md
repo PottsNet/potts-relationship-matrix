@@ -37,7 +37,9 @@ This repository is currently an early alpha and should be tested on a non-produc
 1. Download or clone the repository.
 2. Place the module folder in `modules_v4/potts_relationship_matrix`.
 3. Enable **Potts Relationship Matrix** in **Control panel > Modules > All modules**.
-4. Open **Charts > Relationship Matrix**.
+4. Open **Charts > Potts Relationship Matrix**.
+
+The chart can be opened directly from the Charts menu. If no individual XREF is supplied in the route, the module uses webtrees' significant/default individual for the current user and tree.
 
 Release ZIP packaging will be added once the first alpha has been tested successfully.
 
