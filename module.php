@@ -20,6 +20,7 @@ use Fisharebest\Webtrees\Module\ModuleChartTrait;
 use Fisharebest\Webtrees\Module\ModuleCustomInterface;
 use Fisharebest\Webtrees\Module\ModuleCustomTrait;
 use Fisharebest\Webtrees\Validator;
+use Fisharebest\Webtrees\View;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -29,7 +30,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.1';
+    private const VERSION = '0.1.0-alpha.2';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
@@ -93,6 +94,12 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
         $this->core->setName($this->name());
         $this->core->setEnabled($this->isEnabled());
         $this->core->boot();
+
+        // RelationshipMatrixCore.php lives in /src, so its own __DIR__ points
+        // one level below the real module resources folder. Re-register the
+        // namespace here from the public wrapper so webtrees resolves views from
+        // modules_v4/potts-relationship-matrix/resources/views/.
+        View::registerNamespace('potts-relationship-matrix', $this->resourcesFolder() . 'views/');
     }
 
     public function chartMenuClass(): string
