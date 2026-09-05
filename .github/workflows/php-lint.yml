@@ -1,4 +1,4 @@
-name: PHP lint
+name: PHP checks
 
 on:
   push:
@@ -24,3 +24,28 @@ jobs:
           while IFS= read -r -d '' file; do
             php -l "$file"
           done < <(find . -type f \( -name '*.php' -o -name '*.phtml' \) -print0)
+
+  webtrees-226-load:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out module
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Check out webtrees 2.2.6
+        shell: bash
+        run: git clone --depth 1 --branch 2.2.6 https://github.com/fisharebest/webtrees.git /tmp/webtrees
+
+      - name: Install webtrees PHP dependencies
+        working-directory: /tmp/webtrees
+        run: composer install --no-dev --prefer-dist --no-interaction --ignore-platform-reqs
+
+      - name: Load module against webtrees 2.2.6
+        shell: bash
+        run: |
+          php -r 'require "/tmp/webtrees/vendor/autoload.php"; $module = require "module.php"; if (!$module instanceof Fisharebest\Webtrees\Module\ModuleChartInterface) { throw new RuntimeException("Module did not load as a chart module"); } echo $module->customModuleVersion(), PHP_EOL;'
