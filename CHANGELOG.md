@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.0-alpha.10
+
+- Adds **Graph connected relationships** as a second multi-person graph mode alongside the strict shared-ancestry graph.
+- Keeps **Graph selected people** unchanged: it still requires an ancestor or ancestral family shared by everyone.
+- Builds the connected graph by merging the best route from **Person 1** to each other selected person.
+- Prefers blood/common-ancestor routes, then falls back to the broader visible family graph when a selected person is connected only through spouse/partner or other family links.
+- Merges repeated people and families so separate ancestry branches can meet naturally at a marriage/partnership.
+- Uses family roles from webtrees to distinguish **parent-child descent** from **spouse/partner links**.
+- Draws parent-child descent with solid connectors and spouse/partner links with dashed connectors and a legend.
+- Keeps relationship labels relative to Person 1 and adds `via <person>` context where the first branch person helps explain the connection.
+- Highlights important branch people used to connect Person 1 to other selected people.
+- Uses a generation solver centred on Person 1: parent/child changes generation by one while spouses remain in the same generation. This keeps separate ancestral branches aligned when they meet in a marriage.
+- Preserves broader-family relationship labels where the blood matrix has no relationship.
+- Uses the same native webtrees `chart-box` cards, privacy checks, photo/date controls and optional fit-to-width behaviour.
+
 ## 0.1.0-alpha.9
 
 - Changes the multi-person shared ancestry graph from left-to-right to a **top-down descendant pedigree**.
@@ -95,8 +110,9 @@ Initial development alpha.
 
 - This remains an early development alpha and needs live-tree testing across varied relationships.
 - Common-ancestor mode follows recorded GEDCOM parent-child links and does not yet distinguish genetic, adoptive, foster or other parentage types.
-- The relationship pedigree uses a custom merged-path layout rather than the full webtrees pedigree layout engine.
+- The relationship pedigree uses custom merged-path layouts rather than the full webtrees pedigree layout engine.
 - Multi-person shared ancestry currently chooses the shortest visible path from each selected person to each shared ancestor and is still an alpha implementation for pedigree-collapse cases.
+- Connected relationships currently merges the closest route from Person 1 to each selected person; a future version may offer alternate-route selection and richer cluster controls.
 - Multi-person relationship labels use Person 1 as the reference; all pairwise relationship labels remain available in the matrix.
 - A formal relationship/kinship coefficient is not yet calculated.
 - Path/route searches are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
