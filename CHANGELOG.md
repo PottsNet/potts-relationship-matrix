@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.0-alpha.12
+
+- Adds **Relationships in a photo** using the people explicitly linked to a webtrees media object.
+- Uses webtrees' native linked-record service rather than filename matching, captions, notes or face recognition.
+- Adds the normal webtrees media-object selector to Potts Relationship Matrix.
+- Automatically builds the pairwise relationship matrix for the visible people linked to the selected media record.
+- Automatically opens the top-down connected-family graph in photo mode so spouses, in-laws and different family branches can be shown together.
+- Allows any linked person to be chosen as the **Reference person** for relationship labels.
+- Keeps the selected media and reference person in matrix-detail links so photo context is preserved while inspecting individual pairs.
+- Supports up to 16 visible linked people per media object in this development alpha and gives a warning when a photo contains more.
+- Hides the ordinary manual person picker while photo mode is active so the displayed people remain evidence-driven from the media links.
+- Adds a relationship-mode choice for photo analysis: common-ancestor relationships or all visible family links including spouses.
+- Respects normal webtrees media and individual privacy filtering.
+
 ## 0.1.0-alpha.11
 
 - Changes **Graph connected relationships** to a top-down family-network layout so older generations appear above later generations.
@@ -126,6 +140,8 @@ Initial development alpha.
 - Multi-person shared ancestry currently chooses the shortest visible path from each selected person to each shared ancestor and is still an alpha implementation for pedigree-collapse cases.
 - Connected relationships currently merges the closest route from Person 1 to each selected person; a future version may offer alternate-route selection and richer cluster controls.
 - Historical event links require explicit GEDCOM `_ASSO`/`ASSO` data on the relevant family event and currently display only when the associated person is already present in the connected graph.
+- Photo relationship mode is currently selected from within Potts Relationship Matrix; a direct media-page action is planned after live-tree testing.
+- Photo relationship analysis is capped at 16 visible linked people in this alpha to protect performance.
 - Multi-person relationship labels use Person 1 as the reference; all pairwise relationship labels remain available in the matrix.
 - A formal relationship/kinship coefficient is not yet calculated.
 - Path/route searches are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
