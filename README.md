@@ -17,8 +17,10 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 - Display the underlying relationship paths as a merged pedigree-style graphical relationship chart.
 - Reuse webtrees' native person cards, including photographs, lifespan and configured chart-box facts.
 - Highlight common ancestors and selected endpoints.
-- Add a family-unit marker around common ancestors belonging to the same grouped route.
+- Present a shared ancestral couple as a graphical family unit with descendant branches connected to the family junction.
+- Show route depth in genealogist-friendly wording such as `2 generations up · 2 generations down`.
 - Toggle photos, dates/places, common-ancestor highlighting and fit-to-width.
+- Protect readability by avoiding automatic fit-to-width where a wide chart would make person cards too small; horizontal scrolling remains available and fitting can still be enabled manually.
 - Use webtrees relationship labels and privacy checks rather than maintaining a separate genealogy database.
 
 ## Relationship modes
@@ -37,7 +39,7 @@ This mode searches the visible webtrees family graph and may include spouse link
 
 Click a non-diagonal relationship-matrix cell to open the pair analysis. The graphical relationship view uses webtrees' own `chart-box` renderer, so cards follow the active webtrees theme and the tree's chart-box settings.
 
-Shared people are merged where practical. Selected people receive endpoint highlighting and common ancestors receive separate highlighting. Where two common ancestors form the same grouped route, the chart adds a family-unit marker to make the ancestral couple easier to recognise.
+Shared people are merged where practical. Selected people receive endpoint highlighting and common ancestors receive separate highlighting. Where two common ancestors form the same grouped route, the chart presents them as a **Shared ancestral family** with a family bracket on both sides and the two descendant branches connected to that family unit.
 
 The current layout is a custom left-to-right merged relationship pedigree. It is designed for relationship explanation rather than as a replacement for webtrees' normal ancestor pedigree chart.
 
@@ -67,7 +69,7 @@ Because this is an alpha, privacy behaviour should be tested while signed out an
 
 ## Status
 
-Current development version: `0.1.0-alpha.5`.
+Current development version: `0.1.0-alpha.6`.
 
 Planned follow-up work includes native route filtering in the graphical view, performance caching, pairwise coefficient calculations, richer relationship filtering and release packaging.
 
