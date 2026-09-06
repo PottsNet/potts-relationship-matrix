@@ -14,14 +14,15 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 - Calculate broader family-link paths, including spouses, using the webtrees relationship graph.
 - Show the closest relationship, relationship-route count, common-ancestor count and generation information in matrix cells.
 - Open a pair analysis showing grouped relationship routes.
-- Display the underlying relationship paths as a merged pedigree-style graphical relationship chart.
+- Display pair relationships as a merged pedigree-style graphical relationship chart.
+- **Graph three or more selected people together** from the ancestor or ancestral family shared by everyone.
+- Merge overlapping descendant branches in the multi-person graph rather than repeating the same person for each selected endpoint.
+- Switch between the nearest shared ancestor/family and additional shared ancestors.
 - Reuse webtrees' native person cards, including photographs, lifespan and configured chart-box facts.
-- Highlight common ancestors and selected endpoints.
-- Present a shared ancestral couple as a graphical family unit with descendant branches connected to the family junction.
-- Show route depth in genealogist-friendly wording such as `2 generations up · 2 generations down`.
-- Toggle photos, dates/places, common-ancestor highlighting and fit-to-width.
+- Highlight common/shared ancestors and selected endpoints.
+- Show generation distance from shared ancestry to each selected person.
+- Toggle photos, dates/places, ancestor highlighting and fit-to-width.
 - Show relationship cards at normal size by default, using horizontal scrolling for wide relationships; fit-to-width remains an explicit optional view.
-- Size the chart viewport from the relationship cards actually being shown rather than keeping a large fixed empty canvas.
 - Use webtrees relationship labels and privacy checks rather than maintaining a separate genealogy database.
 
 ## Relationship modes
@@ -36,15 +37,25 @@ For example, two full siblings normally have two common ancestors — their two 
 
 This mode searches the visible webtrees family graph and may include spouse links. It is useful for finding connections that are genealogically meaningful even when two people do not share a known common ancestor.
 
-## Graphical relationship view
+## Pair graphical relationship view
 
 Click a non-diagonal relationship-matrix cell to open the pair analysis. The graphical relationship view uses webtrees' own `chart-box` renderer, so cards follow the active webtrees theme and the tree's chart-box settings.
 
-Shared people are merged where practical. Selected people receive endpoint highlighting and common ancestors receive separate highlighting. Where two common ancestors form the same grouped route, the chart presents them as a **Shared ancestral family** with a family bracket on both sides and the two descendant branches connected to that family unit.
+Shared people are merged where practical. Selected people receive endpoint highlighting and common ancestors receive separate highlighting. Where two common ancestors form the same grouped route, they are treated as one shared ancestral family.
 
 The default presentation keeps person cards at their normal readable size and allows horizontal scrolling where necessary. **Fit chart to width** can still be enabled manually when an overview is more useful than full-size cards.
 
-The current layout is a custom left-to-right merged relationship pedigree. It is designed for relationship explanation rather than as a replacement for webtrees' normal ancestor pedigree chart.
+## Multi-person shared ancestry graph
+
+Select at least three people and choose **Graph selected people**. The module calculates the ancestors shared by every selected person before drawing the graph.
+
+The default **Nearest shared ancestor** mode selects the closest shared ancestor or ancestral family according to the generation distances from all selected people. If two ancestors are reached through the same descendant-family paths, they are grouped as one shared ancestral family — for example, a shared grandparent couple.
+
+The graph is then built from the shared ancestry down to every selected person. Intermediate people and overlapping descendant branches are merged so the result behaves like one pedigree network rather than several pair charts placed beside each other.
+
+**More shared ancestors** can display additional shared ancestry groups within the current ancestor search limit. This is intended for exploring older common ancestry and pedigree-collapse situations and remains an alpha feature.
+
+For each shared ancestry group, the panel reports the generation distance to every selected person.
 
 ## Requirements
 
@@ -72,9 +83,9 @@ Because this is an alpha, privacy behaviour should be tested while signed out an
 
 ## Status
 
-Current development version: `0.1.0-alpha.7`.
+Current development version: `0.1.0-alpha.8`.
 
-Planned follow-up work includes native route filtering in the graphical view, performance caching, pairwise coefficient calculations, richer relationship filtering and release packaging.
+The multi-person graph currently chooses the shortest visible path from each selected person to each shared ancestor. More complex pedigree-collapse path selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
 
 ## Support
 
