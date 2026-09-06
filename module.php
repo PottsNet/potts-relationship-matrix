@@ -24,19 +24,22 @@ use Psr\Http\Message\ServerRequestInterface;
 
 $core = require __DIR__ . '/src/RelationshipMatrixCore.php';
 require_once __DIR__ . '/src/RelationshipMatrixSupport.php';
+require_once __DIR__ . '/src/MultiPersonTopDownEnhancement.php';
 $support = new PottsRelationshipMatrixSupport($core);
+$top_down = new PottsRelationshipMatrixTopDownEnhancement();
 
-return new class($core, $support) extends AbstractModule implements ModuleCustomInterface, ModuleChartInterface {
+return new class($core, $support, $top_down) extends AbstractModule implements ModuleCustomInterface, ModuleChartInterface {
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.8';
+    private const VERSION = '0.1.0-alpha.9';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
     public function __construct(
         private readonly object $core,
-        private readonly PottsRelationshipMatrixSupport $support
+        private readonly PottsRelationshipMatrixSupport $support,
+        private readonly PottsRelationshipMatrixTopDownEnhancement $top_down
     ) {
     }
 
@@ -178,6 +181,7 @@ return new class($core, $support) extends AbstractModule implements ModuleCustom
             $query_values,
             $base_url
         );
+        $this->top_down->push($multi_graph, $matrix_data, $selected);
 
         return $this->viewResponse('potts-relationship-matrix::page', [
             'title' => $this->title(),
