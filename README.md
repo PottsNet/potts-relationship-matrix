@@ -17,10 +17,11 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 - Display pair relationships as a merged pedigree-style graphical relationship chart.
 - **Graph selected people** from an ancestor or ancestral family shared by everyone.
 - **Graph connected relationships** even when no single ancestor is shared by every selected person.
-- Draw multi-person graphs top-down and reuse webtrees' native person cards.
+- Draw multi-person and connected graphs top-down and reuse webtrees' native person cards.
 - Merge overlapping descendant branches and repeated family connections.
 - Label selected people relative to **Person 1**, for example `elder brother`, `first cousin` or `second cousin`.
 - Distinguish parent-child descent from spouse/partner links in the connected graph.
+- Display explicit GEDCOM event associations as separate historical/context links when the associated person is present in the connected graph.
 - Toggle photos, dates/places, relationship labels, ancestor highlighting and fit-to-width.
 - Use webtrees relationship labels and privacy checks rather than maintaining a separate genealogy database.
 
@@ -62,19 +63,34 @@ Choose **Graph connected relationships** when the selected people do not all des
 
 The connected graph starts with Person 1 and merges the closest useful route from Person 1 to every other selected person. It prefers a blood/common-ancestor route where one exists. If there is no blood route, it falls back to the wider visible family graph, which can include spouse/partner connections.
 
-This means a Potts ancestry branch and a Madill ancestry branch can appear in the same graph and meet at the family of Charles Henry Lyle Potts and Annette Rita Madill without implying that the Madill descendant belongs to the Potts blood line.
+The connected graph is also drawn top-down. Older generations appear above later generations, spouses remain on the same generation row and their family junction feeds descendant branches below.
 
 The graph uses:
 
 - **solid connectors** for parent-child descent;
 - **dashed connectors** for spouse/partner links;
+- **dotted historical connectors** for explicit event associations;
 - blue outlines for selected people;
 - relationship labels relative to **Person 1**; and
 - `via <person>` summary text where the first branch person helps explain how a selected person connects to Person 1.
 
-Generation rows are solved from Person 1. Parent/child links change the generation by one while spouses/partners remain in the same generation. This lets separate ancestral branches remain aligned when they meet in a marriage.
+This means a Potts ancestry branch and a Madill ancestry branch can appear in the same graph and meet at a marriage/partnership without implying that a Madill descendant belongs to the Potts blood line.
 
-The connected graph is intentionally separate from **Shared ancestry graph**. A connected family network does not mean that every selected person shares the same ancestor.
+## Historical event associations
+
+The connected graph can also show a non-genealogical historical connection when the GEDCOM explicitly records an associate on a family event.
+
+webtrees supports family-event associate links such as `_ASSO`, with a `RELA` value describing the role. Potts Relationship Matrix reads these links when the family event is part of the connected graph and the associated person is also visible in that graph.
+
+For example, a marriage event could contain an association to a minister with a role such as `officiating minister`. The chart then shows:
+
+- the marriage as a small event card;
+- its recorded date and place where available; and
+- a separate dotted line from the minister to the event, labelled `officiating minister`.
+
+This does **not** create or imply a blood or marriage relationship. Historical links are never inferred by matching names in notes or sources; they require an explicit GEDCOM association.
+
+This is intended for cases where two family branches crossed historically before their descendants later married — for example, a minister from one ancestral branch officiating at a marriage in another ancestral branch.
 
 ## Requirements
 
@@ -98,13 +114,15 @@ Release ZIP packaging will be added after the alpha has been tested successfully
 
 The module is designed to respect webtrees privacy. Selected individuals must be visible to the current visitor and hidden individuals/families are not intentionally exposed through relationship output.
 
+Historical event links are shown only when the event itself can be shown, the associated person can be shown and that person is already present in the connected graph.
+
 Because this is an alpha, privacy behaviour should be tested while signed out and with representative member accounts before production use.
 
 ## Status
 
-Current development version: `0.1.0-alpha.10`.
+Current development version: `0.1.0-alpha.11`.
 
-The shared-ancestry and connected graphs currently choose the closest visible route needed for the requested view. More complex alternate-route selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
+The shared-ancestry and connected graphs currently choose the closest visible route needed for the requested view. Historical event links currently depend on explicit GEDCOM event-association data. More complex alternate-route selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
 
 ## Support
 
