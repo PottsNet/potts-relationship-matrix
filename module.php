@@ -26,15 +26,17 @@ $core = require __DIR__ . '/src/RelationshipMatrixCore.php';
 require_once __DIR__ . '/src/RelationshipMatrixSupport.php';
 require_once __DIR__ . '/src/MultiPersonTopDownEnhancement.php';
 require_once __DIR__ . '/src/ConnectedRelationshipsEnhancement.php';
+require_once __DIR__ . '/src/ConnectedTopDownEnhancement.php';
 $support = new PottsRelationshipMatrixSupport($core);
 $top_down = new PottsRelationshipMatrixTopDownEnhancement();
 $connected = new PottsRelationshipMatrixConnectedEnhancement($support);
+$connected_top_down = new PottsRelationshipMatrixConnectedTopDownEnhancement();
 
-return new class($core, $support, $top_down, $connected) extends AbstractModule implements ModuleCustomInterface, ModuleChartInterface {
+return new class($core, $support, $top_down, $connected, $connected_top_down) extends AbstractModule implements ModuleCustomInterface, ModuleChartInterface {
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.10';
+    private const VERSION = '0.1.0-alpha.11';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
@@ -42,7 +44,8 @@ return new class($core, $support, $top_down, $connected) extends AbstractModule 
         private readonly object $core,
         private readonly PottsRelationshipMatrixSupport $support,
         private readonly PottsRelationshipMatrixTopDownEnhancement $top_down,
-        private readonly PottsRelationshipMatrixConnectedEnhancement $connected
+        private readonly PottsRelationshipMatrixConnectedEnhancement $connected,
+        private readonly PottsRelationshipMatrixConnectedTopDownEnhancement $connected_top_down
     ) {
     }
 
@@ -191,6 +194,7 @@ return new class($core, $support, $top_down, $connected) extends AbstractModule 
         );
         $this->top_down->push($multi_graph, $matrix_data, $selected);
         $this->connected->push($connected_graph, $tree);
+        $this->connected_top_down->push($connected_graph, $tree);
 
         return $this->viewResponse('potts-relationship-matrix::page', [
             'title' => $this->title(),
