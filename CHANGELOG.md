@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.0-alpha.8
+
+- Adds a **Graph selected people** workflow for three or more selected individuals.
+- Finds the nearest ancestor or ancestral family shared by all selected people rather than combining separate pair charts.
+- Groups two shared ancestors into one ancestral family when every selected person reaches them through the same descendant-family path.
+- Builds one merged descendant graph from the shared ancestor/family to all selected people using webtrees-native `chart-box` person cards.
+- Merges overlapping descendant branches so the same intermediate person is not repeated unnecessarily.
+- Shows generation distance from the shared ancestor/family to each selected person.
+- Adds **Nearest shared ancestor** and **More shared ancestors** modes.
+- Adds multi-person graph controls for photos, dates/places, shared-ancestor highlighting and optional fit-to-width.
+- Keeps full-size cards and horizontal scrolling as the default for readability.
+- Refactors alpha presentation/support code into `src/RelationshipMatrixSupport.php` while keeping the relationship engine separate.
+
 ## 0.1.0-alpha.7
 
 - Makes the graphical relationship chart readable by default rather than relying on automatic width fitting.
@@ -60,7 +73,7 @@ Initial development alpha.
 - Added selection of up to eight visible individuals.
 - Added common-ancestor relationship calculation using recorded parent-child links.
 - Added multiple ancestral-path discovery for pedigree-collapse style relationships.
-- Added all-family-link path searching using the webtrees link graph and Dijkstra shortest paths.
+- Added all-family-link path searching using the webtrees relationship graph and Dijkstra shortest paths.
 - Added alternative-path discovery by excluding family nodes from previously discovered routes.
 - Added directional webtrees-native relationship names for matrix cells.
 - Added pair detail with relationship path counts, common ancestors and generation notation.
@@ -72,5 +85,6 @@ Initial development alpha.
 - This remains an early development alpha and needs live-tree testing across varied relationships.
 - Common-ancestor mode follows recorded GEDCOM parent-child links and does not yet distinguish genetic, adoptive, foster or other parentage types.
 - The relationship pedigree uses a custom merged-path layout rather than the full webtrees pedigree layout engine.
+- Multi-person shared ancestry currently chooses the shortest visible path from each selected person to each shared ancestor and is still an alpha implementation for pedigree-collapse cases.
 - A formal relationship/kinship coefficient is not yet calculated.
 - Path/route searches are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
