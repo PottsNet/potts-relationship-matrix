@@ -6,7 +6,7 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 
 ## Current alpha features
 
-- Select up to eight visible individuals from a webtrees tree.
+- Select up to eight visible individuals manually from a webtrees tree.
 - Build an N × N relationship matrix.
 - Calculate blood/ancestral relationships through common ancestors.
 - Group the two members of an ancestral couple into one genealogical relationship route where they lead through the same descendant path.
@@ -17,6 +17,7 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 - Display pair relationships as a merged pedigree-style graphical relationship chart.
 - **Graph selected people** from an ancestor or ancestral family shared by everyone.
 - **Graph connected relationships** even when no single ancestor is shared by every selected person.
+- **Relationships in a photo** from the individuals explicitly linked to a webtrees media record.
 - Draw multi-person and connected graphs top-down and reuse webtrees' native person cards.
 - Merge overlapping descendant branches and repeated family connections.
 - Label selected people relative to **Person 1**, for example `elder brother`, `first cousin` or `second cousin`.
@@ -76,6 +77,24 @@ The graph uses:
 
 This means a Potts ancestry branch and a Madill ancestry branch can appear in the same graph and meet at a marriage/partnership without implying that a Madill descendant belongs to the Potts blood line.
 
+## Relationships in a photo
+
+Choose a media object in the **Relationships in a photo** panel. The module asks webtrees for the visible individuals explicitly linked to that media record and uses those people as the relationship group.
+
+This feature is evidence-driven. It does **not** identify people from faces, filenames, captions or notes. A person must already be linked to the media record in webtrees.
+
+Photo mode then:
+
+- builds the pairwise relationship matrix for the linked people;
+- opens the top-down connected-family graph automatically;
+- allows any linked person to be selected as the **Reference person**;
+- can use strict common-ancestor relationships or all visible family links including spouses; and
+- preserves the selected media record while individual matrix cells are opened for closer inspection.
+
+This is useful for family-group photographs where siblings, cousins, spouses, in-laws or several family branches appear together. The connected graph can show how everyone in the photograph fits into the wider family without implying that every person shares the same ancestor.
+
+The current alpha analyses up to **16 visible linked individuals** in one media record as a safety limit while performance is tested on real trees.
+
 ## Historical event associations
 
 The connected graph can also show a non-genealogical historical connection when the GEDCOM explicitly records an associate on a family event.
@@ -112,17 +131,19 @@ Release ZIP packaging will be added after the alpha has been tested successfully
 
 ## Privacy
 
-The module is designed to respect webtrees privacy. Selected individuals must be visible to the current visitor and hidden individuals/families are not intentionally exposed through relationship output.
+The module is designed to respect webtrees privacy. Selected individuals and media must be visible to the current visitor and hidden individuals/families are not intentionally exposed through relationship output.
 
 Historical event links are shown only when the event itself can be shown, the associated person can be shown and that person is already present in the connected graph.
+
+Photo relationship mode uses webtrees' linked-record service, which filters linked people according to normal record access rules.
 
 Because this is an alpha, privacy behaviour should be tested while signed out and with representative member accounts before production use.
 
 ## Status
 
-Current development version: `0.1.0-alpha.11`.
+Current development version: `0.1.0-alpha.12`.
 
-The shared-ancestry and connected graphs currently choose the closest visible route needed for the requested view. Historical event links currently depend on explicit GEDCOM event-association data. More complex alternate-route selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
+The shared-ancestry and connected graphs currently choose the closest visible route needed for the requested view. Historical event links currently depend on explicit GEDCOM event-association data. Photo mode is currently launched from within Potts Relationship Matrix; a direct action from media pages is planned after live-tree testing. More complex alternate-route selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
 
 ## Support
 
