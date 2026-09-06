@@ -166,6 +166,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
         }
 
         $this->layout = 'layouts/default';
+        $this->pushMatrixDisplayFixes();
 
         return $this->viewResponse('potts-relationship-matrix::page', [
             'title' => $this->title(),
@@ -313,6 +314,46 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
             'notation' => $notation,
             'pair_key' => $key,
         ];
+    }
+
+    /**
+     * Keep four-person matrices readable on laptop-width screens and prevent
+     * browsers from restoring a previous horizontal scroll position that hides
+     * the first relationship columns behind the sticky person-name column.
+     */
+    private function pushMatrixDisplayFixes(): void
+    {
+        View::push('styles');
+        echo <<<'HTML'
+<style>
+.potts-rm-table thead th:not(:first-child),
+.potts-rm-cell {
+    min-width: 150px !important;
+    max-width: 185px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.potts-rm-table thead th:first-child,
+.potts-rm-table tbody th {
+    min-width: 185px !important;
+    max-width: 215px !important;
+}
+.potts-rm-table-wrap {
+    scrollbar-gutter: stable;
+}
+</style>
+HTML;
+        View::endpush();
+
+        View::push('javascript');
+        echo <<<'HTML'
+<script>
+document.querySelectorAll('.potts-rm-table-wrap').forEach(function (matrix) {
+    matrix.scrollLeft = 0;
+});
+</script>
+HTML;
+        View::endpush();
     }
 
     private function coreCall(string $method, array $arguments = []): mixed
