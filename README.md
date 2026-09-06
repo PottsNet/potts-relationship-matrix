@@ -57,6 +57,8 @@ The graph is then built from the shared ancestry down to every selected person. 
 
 For each shared ancestry group, the panel reports the generation distance to every selected person.
 
+A good live-tree test is to choose three descendants who are already known to come from one ancestral couple. The expected result is one highlighted shared ancestral family at the start of the graph with three descendant branches that merge wherever the selected people share more recent ancestors.
+
 ## Requirements
 
 - webtrees 2.2.x
