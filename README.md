@@ -8,21 +8,26 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 
 - Select up to eight visible individuals from a webtrees tree.
 - Build an N × N relationship matrix.
-- Calculate blood/ancestral relationship paths through common ancestors.
+- Calculate blood/ancestral relationships through common ancestors.
+- Group the two members of an ancestral couple into one genealogical relationship route where they lead through the same descendant path.
+- Preserve genuinely different relationship routes caused by pedigree collapse or independent ancestral connections.
 - Calculate broader family-link paths, including spouses, using the webtrees relationship graph.
-- Show the closest relationship, path count and generation/step information in each matrix cell.
-- Open a pair analysis showing multiple relationship paths.
-- Display relationship paths as a merged pedigree-style graphical relationship chart.
+- Show the closest relationship, relationship-route count, common-ancestor count and generation information in matrix cells.
+- Open a pair analysis showing grouped relationship routes.
+- Display the underlying relationship paths as a merged pedigree-style graphical relationship chart.
 - Reuse webtrees' native person cards, including photographs, lifespan and configured chart-box facts.
 - Highlight common ancestors and selected endpoints.
-- Toggle closest/all displayed paths, photos, dates/places, common-ancestor highlighting and fit-to-width.
+- Add a family-unit marker around common ancestors belonging to the same grouped route.
+- Toggle photos, dates/places, common-ancestor highlighting and fit-to-width.
 - Use webtrees relationship labels and privacy checks rather than maintaining a separate genealogy database.
 
 ## Relationship modes
 
 ### Blood / common ancestors
 
-This mode builds ancestor paths for each selected person and combines paths that meet at a common ancestor. It is intended for ancestral, cousin and pedigree-collapse analysis.
+This mode builds ancestor paths for each selected person and combines paths that meet at a common ancestor. Paths that reduce to the same descendant-family sequence are grouped into one **relationship route**.
+
+For example, two full siblings normally have two common ancestors — their two parents — but only one sibling relationship route. Likewise, ordinary first cousins may share two grandparents while still having one cousin relationship route. A second independent ancestral branch remains a separate route.
 
 ### All family links
 
@@ -32,7 +37,7 @@ This mode searches the visible webtrees family graph and may include spouse link
 
 Click a non-diagonal relationship-matrix cell to open the pair analysis. The graphical relationship view uses webtrees' own `chart-box` renderer, so cards follow the active webtrees theme and the tree's chart-box settings.
 
-Shared people are merged where practical. Selected people receive endpoint highlighting, common ancestors receive separate highlighting, spouse links are dashed and sibling links are dotted.
+Shared people are merged where practical. Selected people receive endpoint highlighting and common ancestors receive separate highlighting. Where two common ancestors form the same grouped route, the chart adds a family-unit marker to make the ancestral couple easier to recognise.
 
 The current layout is a custom left-to-right merged relationship pedigree. It is designed for relationship explanation rather than as a replacement for webtrees' normal ancestor pedigree chart.
 
@@ -62,9 +67,9 @@ Because this is an alpha, privacy behaviour should be tested while signed out an
 
 ## Status
 
-Current development version: `0.1.0-alpha.3`.
+Current development version: `0.1.0-alpha.5`.
 
-Planned follow-up work includes performance caching, improved merged-path ordering, pairwise coefficient calculations, richer relationship filtering and release packaging.
+Planned follow-up work includes native route filtering in the graphical view, performance caching, pairwise coefficient calculations, richer relationship filtering and release packaging.
 
 ## Support
 
