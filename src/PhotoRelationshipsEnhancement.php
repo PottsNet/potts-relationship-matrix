@@ -63,13 +63,18 @@ final class PottsRelationshipMatrixPhotoEnhancement
             $seen[$individual->xref()] = true;
         }
 
+        // Always normalise the list to zero-based numeric keys. More importantly,
+        // do not assume a first person exists: a perfectly valid media record can
+        // have no visible linked individuals for the current visitor.
+        $people = array_values($people);
         $total_count = count($people);
         $reference_xref = trim($reference_xref);
 
         if ($reference_xref === '' || !isset($seen[$reference_xref])) {
+            $first_person = $people[0] ?? null;
             $reference_xref = isset($seen[$route_individual->xref()])
                 ? $route_individual->xref()
-                : ($people[0]->xref() ?? '');
+                : ($first_person instanceof Individual ? $first_person->xref() : '');
         }
 
         if ($reference_xref !== '') {
