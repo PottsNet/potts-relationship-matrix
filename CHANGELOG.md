@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.4
+
+- Corrected common-ancestor relationship naming when both descendants reach a common ancestor through the same family.
+- Collapses duplicated `family → common ancestor → same family` segments for webtrees relationship naming while preserving the full ancestral route for the graphical view.
+- Prevents full-sibling paths from being misread as half-sibling paths and reduces unnecessarily long relationship descriptions such as `grandfather's granddaughter` where a direct family relationship is available.
+- Rebuilds both directions of matrix relationship labels from the corrected path while retaining distinct common-ancestor path counts.
+- Keeps the pedigree graph data unchanged so shared parents/common ancestors can still be displayed visually.
+
 ## 0.1.0-alpha.3
 
 - Replaced the generic SVG person boxes with a pedigree-style graphical relationship view.
