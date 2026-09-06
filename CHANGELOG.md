@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha.9
+
+- Changes the multi-person shared ancestry graph from left-to-right to a **top-down descendant pedigree**.
+- Places the shared ancestor or shared ancestral couple at the top and flows descendants downward by generation.
+- Keeps people in the same generation on the same horizontal row where practical.
+- Draws a shared ancestral couple as a family unit with one descendant junction so duplicate parent-to-child lines are reduced.
+- Adds relationship labels to selected people relative to **Person 1**. For example, selected people may be labelled `elder brother`, `first cousin` or `second cousin` using the same relationship names already calculated for the matrix.
+- Marks Person 1 as the **Reference person** and adds a **Show relationship labels** control.
+- Keeps the complete matrix available for every pairwise relationship rather than attempting to draw all pairwise labels on the graph.
+- Retains photos, dates/places, shared-ancestor highlighting and optional fit-to-width controls.
+
 ## 0.1.0-alpha.8
 
 - Adds a **Graph selected people** workflow for three or more selected individuals.
@@ -35,7 +46,7 @@
 
 - Groups common ancestors that reduce to the same normalised descendant path into one genealogical **relationship route**.
 - Treats the two parents of full siblings, or the two grandparents of ordinary cousins, as one relationship route with two common ancestors rather than two separate relationships.
-- Preserves genuinely different descendant routes caused by pedigree collapse or multiple independent ancestral connections.
+- Preserves genuinely different relationship routes caused by pedigree collapse or multiple independent ancestral connections.
 - Adds route counts and common-ancestor counts to matrix presentation.
 - Replaces duplicate path cards in pair detail with one card per relationship route and lists all common ancestors for that route.
 - Adds a graphical family-unit bracket linking common ancestors who belong to the same grouped route.
@@ -86,5 +97,6 @@ Initial development alpha.
 - Common-ancestor mode follows recorded GEDCOM parent-child links and does not yet distinguish genetic, adoptive, foster or other parentage types.
 - The relationship pedigree uses a custom merged-path layout rather than the full webtrees pedigree layout engine.
 - Multi-person shared ancestry currently chooses the shortest visible path from each selected person to each shared ancestor and is still an alpha implementation for pedigree-collapse cases.
+- Multi-person relationship labels use Person 1 as the reference; all pairwise relationship labels remain available in the matrix.
 - A formal relationship/kinship coefficient is not yet calculated.
 - Path/route searches are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
