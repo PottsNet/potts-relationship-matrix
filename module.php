@@ -11,6 +11,7 @@ declare(strict_types=1);
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\Module\AbstractModule;
 use Fisharebest\Webtrees\Module\ModuleChartInterface;
 use Fisharebest\Webtrees\Module\ModuleChartTrait;
@@ -27,16 +28,18 @@ require_once __DIR__ . '/src/RelationshipMatrixSupport.php';
 require_once __DIR__ . '/src/MultiPersonTopDownEnhancement.php';
 require_once __DIR__ . '/src/ConnectedRelationshipsEnhancement.php';
 require_once __DIR__ . '/src/ConnectedTopDownEnhancement.php';
+require_once __DIR__ . '/src/PhotoRelationshipsEnhancement.php';
 $support = new PottsRelationshipMatrixSupport($core);
 $top_down = new PottsRelationshipMatrixTopDownEnhancement();
 $connected = new PottsRelationshipMatrixConnectedEnhancement($support);
 $connected_top_down = new PottsRelationshipMatrixConnectedTopDownEnhancement();
+$photo = new PottsRelationshipMatrixPhotoEnhancement();
 
-return new class($core, $support, $top_down, $connected, $connected_top_down) extends AbstractModule implements ModuleCustomInterface, ModuleChartInterface {
+return new class($core, $support, $top_down, $connected, $connected_top_down, $photo) extends AbstractModule implements ModuleCustomInterface, ModuleChartInterface {
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.11';
+    private const VERSION = '0.1.0-alpha.12';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
@@ -45,7 +48,8 @@ return new class($core, $support, $top_down, $connected, $connected_top_down) ex
         private readonly PottsRelationshipMatrixSupport $support,
         private readonly PottsRelationshipMatrixTopDownEnhancement $top_down,
         private readonly PottsRelationshipMatrixConnectedEnhancement $connected,
-        private readonly PottsRelationshipMatrixConnectedTopDownEnhancement $connected_top_down
+        private readonly PottsRelationshipMatrixConnectedTopDownEnhancement $connected_top_down,
+        private readonly PottsRelationshipMatrixPhotoEnhancement $photo
     ) {
     }
 
@@ -56,7 +60,7 @@ return new class($core, $support, $top_down, $connected, $connected_top_down) ex
 
     public function description(): string
     {
-        return I18N::translate('Compare multiple relationships and display pair, shared-ancestry and connected-family graphs.');
+        return I18N::translate('Compare multiple relationships and display pair, shared-ancestry, connected-family and photo relationship graphs.');
     }
 
     public function customModuleAuthorName(): string
@@ -140,6 +144,30 @@ return new class($core, $support, $top_down, $connected, $connected_top_down) ex
         $selection = $this->support->call('selectedIndividuals', [$tree, $route_individual, $query]);
         [$slots, $selected] = $selection;
 
+        $media_xref = is_string($query['media'] ?? null) ? (string) $query['media'] : '';
+        $photo_reference = is_string($query['photo_ref'] ?? null) ? (string) $query['photo_ref'] : '';
+        $photo_context = $this->photo->resolve($media_xref, $tree, $route_individual, $photo_reference);
+        $photo_media = $photo_context['media'] ?? null;
+
+        // Photo mode is data-driven from explicit media links. It is intentionally
+        // separate from the eight manual person-picker slots and may analyse up
+        // to the photo safety limit in one matrix/graph.
+        if ($photo_media instanceof Media && !empty($photo_context['people']) && is_array($photo_context['people'])) {
+            /** @var array<int,Individual> $photo_people */
+            $photo_people = array_values(array_filter(
+                $photo_context['people'],
+                static fn ($person): bool => $person instanceof Individual && $person->canShow()
+            ));
+
+            if ($photo_people !== []) {
+                $selected = $photo_people;
+                $slots = [];
+                for ($i = 1; $i <= 8; $i++) {
+                    $slots[$i] = $selected[$i - 1] ?? null;
+                }
+            }
+        }
+
         $matrix_data = [
             'cells' => [],
             'pairs' => [],
@@ -162,6 +190,13 @@ return new class($core, $support, $top_down, $connected, $connected_top_down) ex
         /** @var array<string,string|int> $query_values */
         $query_values = $this->support->call('queryValues', [$slots, $scope, $recursion]);
 
+        if ($photo_media instanceof Media) {
+            $query_values['media'] = $photo_media->xref();
+            if ($selected !== []) {
+                $query_values['photo_ref'] = $selected[0]->xref();
+            }
+        }
+
         $detail_urls = [];
         foreach (array_keys($matrix_data['pairs']) as $key) {
             $detail_urls[$key] = $base_url . '?' . http_build_query($query_values + ['pair' => $key], '', '&', PHP_QUERY_RFC3986);
@@ -176,12 +211,17 @@ return new class($core, $support, $top_down, $connected, $connected_top_down) ex
             ? null
             : $this->support->calculateMultiPersonGraph($selected, $tree, $multi_mode);
 
-        $connected_requested = isset($query['connected']) && (string) $query['connected'] !== '';
+        // A photo relationship view opens the connected graph automatically so
+        // spouses/in-laws can be shown even when all people do not share one ancestor.
+        $connected_requested = $photo_media instanceof Media
+            ? count($selected) >= 2
+            : (isset($query['connected']) && (string) $query['connected'] !== '');
         $connected_graph = $connected_requested
             ? $this->connected->calculate($selected, $tree, $matrix_data)
             : null;
 
         $this->layout = 'layouts/default';
+        $this->photo->push($photo_context, $tree, $base_url, $scope, $recursion);
         $this->support->pushDisplayEnhancements(
             $matrix_data,
             $scope,
