@@ -90,7 +90,7 @@ For example, a marriage event could contain an association to a minister with a 
 
 This does **not** create or imply a blood or marriage relationship. Historical links are never inferred by matching names in notes or sources; they require an explicit GEDCOM association.
 
-This is intended for cases where two family branches crossed historically before their descendants later married — for example, a minister from one ancestral branch officiating at a marriage in another ancestral branch.
+For a Watson/Toomath-style example, the marriage event for James Watson and Matilda Jane Thompson would explicitly associate Rev Andrew Toomath. If Jason and Andrew are both present in the connected graph, the family branches can be shown normally while a dotted event-association link explains that Andrew officiated at the Watson/Thompson marriage.
 
 ## Requirements
 
