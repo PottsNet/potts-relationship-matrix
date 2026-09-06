@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha.5
+
+- Groups common ancestors that reduce to the same normalised descendant path into one genealogical **relationship route**.
+- Treats the two parents of full siblings, or the two grandparents of ordinary cousins, as one relationship route with two common ancestors rather than two separate relationships.
+- Preserves genuinely different descendant routes caused by pedigree collapse or multiple independent ancestral connections.
+- Adds route counts and common-ancestor counts to matrix presentation.
+- Replaces duplicate path cards in pair detail with one card per relationship route and lists all common ancestors for that route.
+- Adds a graphical family-unit bracket linking common ancestors who belong to the same grouped route.
+- Temporarily disables the closest-route selector where one route contains multiple raw ancestor paths so the complete ancestral couple remains visible.
+
 ## 0.1.0-alpha.4
 
 - Corrected common-ancestor relationship naming when both descendants reach a common ancestor through the same family.
@@ -45,4 +55,4 @@ Initial development alpha.
 - Common-ancestor mode follows recorded GEDCOM parent-child links and does not yet distinguish genetic, adoptive, foster or other parentage types.
 - The relationship pedigree uses a custom merged-path layout rather than the full webtrees pedigree layout engine.
 - A formal relationship/kinship coefficient is not yet calculated.
-- Path counts are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
+- Path/route searches are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
