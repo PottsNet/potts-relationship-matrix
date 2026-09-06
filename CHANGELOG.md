@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.6
+
+- Improves the pedigree-style relationship chart presentation without changing the relationship calculation engine.
+- Draws a shared ancestral couple as a clearer family unit, with brackets on both sides of the common-ancestor cards and descendant branches connected to that family junction.
+- Labels grouped ancestral couples as a **Shared ancestral family** in the graphical view.
+- Replaces the route-card `family steps` wording with clearer generation wording such as `2 generations up · 2 generations down`.
+- Protects person-card readability by automatically turning off `Fit chart to width` on first load when fitting would shrink a wide relationship chart too aggressively; users can still turn fitting back on manually.
+- Keeps native webtrees `chart-box` person cards, route grouping, privacy filtering and relationship naming unchanged.
+
 ## 0.1.0-alpha.5
 
 - Groups common ancestors that reduce to the same normalised descendant path into one genealogical **relationship route**.
