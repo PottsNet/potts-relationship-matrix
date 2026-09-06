@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.0-alpha.11
+
+- Changes **Graph connected relationships** to a top-down family-network layout so older generations appear above later generations.
+- Keeps spouses/partners in the same generation and draws their family junction before descendant branches continue downward.
+- Retains solid parent-child connectors and a visually distinct dashed spouse/partner connector.
+- Adds generic **historical event associations** to connected graphs using explicit GEDCOM family-event `_ASSO`/`ASSO` links.
+- Reads the event association `RELA` value as the displayed role, allowing labels such as `officiating minister`, `witness`, `informant`, `executor` or similar roles without hard-coding them.
+- Historical links are displayed with a separate dotted connector and event card so they cannot be mistaken for blood descent or marriage.
+- Event cards show the event label plus recorded date and place where available.
+- Historical links are privacy-safe and are never inferred from matching names: the associated person must be explicitly linked in the GEDCOM, visible to the current visitor and already present in the connected graph.
+- Provides the foundation for examples where two family branches crossed historically before later descendants married, such as a minister from one ancestral branch officiating at a marriage in another branch.
+
 ## 0.1.0-alpha.10
 
 - Adds **Graph connected relationships** as a second multi-person graph mode alongside the strict shared-ancestry graph.
@@ -61,7 +73,7 @@
 
 - Groups common ancestors that reduce to the same normalised descendant path into one genealogical **relationship route**.
 - Treats the two parents of full siblings, or the two grandparents of ordinary cousins, as one relationship route with two common ancestors rather than two separate relationships.
-- Preserves genuinely different relationship routes caused by pedigree collapse or multiple independent ancestral connections.
+- Preserves genuinely different descendant routes caused by pedigree collapse or multiple independent ancestral connections.
 - Adds route counts and common-ancestor counts to matrix presentation.
 - Replaces duplicate path cards in pair detail with one card per relationship route and lists all common ancestors for that route.
 - Adds a graphical family-unit bracket linking common ancestors who belong to the same grouped route.
@@ -113,6 +125,7 @@ Initial development alpha.
 - The relationship pedigree uses custom merged-path layouts rather than the full webtrees pedigree layout engine.
 - Multi-person shared ancestry currently chooses the shortest visible path from each selected person to each shared ancestor and is still an alpha implementation for pedigree-collapse cases.
 - Connected relationships currently merges the closest route from Person 1 to each selected person; a future version may offer alternate-route selection and richer cluster controls.
+- Historical event links require explicit GEDCOM `_ASSO`/`ASSO` data on the relevant family event and currently display only when the associated person is already present in the connected graph.
 - Multi-person relationship labels use Person 1 as the reference; all pairwise relationship labels remain available in the matrix.
 - A formal relationship/kinship coefficient is not yet calculated.
 - Path/route searches are bounded by safety/performance limits and all-family mode depends on the selected alternative-search depth.
