@@ -34,7 +34,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.6';
+    private const VERSION = '0.1.0-alpha.7';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
@@ -412,9 +412,8 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     }
 
     /**
-     * The alpha view still uses the word "path" in a few places and indexes its
-     * graphical filter by raw ancestor paths. Enhance those elements at runtime
-     * while keeping the stable view file untouched during route-engine testing.
+     * Enhance the alpha presentation while route-grouping behaviour is being
+     * tested on real trees.
      *
      * @param array{cells:array<int,array<int,array<string,mixed>|null>>,pairs:array<string,array<string,mixed>>} $matrix_data
      */
@@ -458,6 +457,11 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
 }
 .potts-rm-pedigree-viewport {
     scroll-behavior: smooth;
+    min-height: 0 !important;
+    height: 320px;
+}
+.potts-rm-pedigree-sizer {
+    min-height: 0 !important;
 }
 </style>
 HTML;
@@ -772,28 +776,56 @@ function drawFamilyUnits() {
     });
 }
 
-let autoFitReviewed = false;
-function protectReadableCardSize() {
-    if (autoFitReviewed) return;
-    autoFitReviewed = true;
+let readableDefaultApplied = false;
+function applyReadableDefault() {
+    if (readableDefaultApplied) return;
+    readableDefaultApplied = true;
 
     const fitWidth = document.getElementById('potts-rm-fit-width');
     const viewport = document.getElementById('potts-rm-pedigree-viewport');
-    const canvas = document.getElementById('potts-rm-pedigree-canvas');
-    if (!fitWidth || !viewport || !canvas || !fitWidth.checked) return;
-
-    const naturalWidth = parseFloat(canvas.style.width || '0');
-    if (naturalWidth > 0 && viewport.clientWidth > 0 && naturalWidth / viewport.clientWidth > 1.35) {
+    if (fitWidth && fitWidth.checked) {
         fitWidth.checked = false;
         fitWidth.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    if (viewport) {
         viewport.scrollLeft = 0;
     }
+}
+
+function currentScale(canvas) {
+    if (!canvas) return 1;
+    const match = /scale\(([^)]+)\)/.exec(canvas.style.transform || '');
+    if (!match) return 1;
+    const value = Number(match[1]);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+function compactChartHeight() {
+    const viewport = document.getElementById('potts-rm-pedigree-viewport');
+    const sizer = document.getElementById('potts-rm-pedigree-sizer');
+    const canvas = document.getElementById('potts-rm-pedigree-canvas');
+    const cardsLayer = document.getElementById('potts-rm-pedigree-cards');
+    if (!viewport || !sizer || !canvas || !cardsLayer) return;
+
+    let maxBottom = 0;
+    cardsLayer.querySelectorAll('[data-node-id]').forEach(function (card) {
+        if (card.style.display === 'none') return;
+        maxBottom = Math.max(maxBottom, card.offsetTop + card.offsetHeight);
+    });
+
+    const scale = currentScale(canvas);
+    const desiredHeight = Math.max(220, Math.min(620, Math.ceil(maxBottom * scale + 52)));
+    viewport.style.minHeight = '0';
+    viewport.style.height = desiredHeight + 'px';
+    sizer.style.minHeight = '0';
+    sizer.style.height = desiredHeight + 'px';
 }
 
 function scheduleFamilyUnits() {
     window.requestAnimationFrame(function () {
         window.requestAnimationFrame(function () {
-            protectReadableCardSize();
+            applyReadableDefault();
+            compactChartHeight();
             drawFamilyUnits();
         });
     });
