@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\Family;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Registry;
 
 /** @var string $title */
 /** @var \Fisharebest\Webtrees\Tree $tree */
@@ -19,6 +23,124 @@ use Fisharebest\Webtrees\Individual;
 /** @var string $clear_detail_url */
 /** @var string $graph_json */
 /** @var string $version */
+
+$pedigree_graph = null;
+$pedigree_individuals = [];
+
+if (is_array($detail) && (int) ($detail['path_count'] ?? 0) > 0) {
+    $nodes = [];
+    $edges = [];
+    $common = [];
+    $paths = array_slice($detail['paths'], 0, 12);
+
+    foreach ($paths as $path_index => $path) {
+        $common_xref = $path['common_ancestor_xref'] ?? null;
+        if (is_string($common_xref) && $common_xref !== '') {
+            $common[$common_xref] = true;
+        }
+
+        $path_nodes = is_array($path['nodes'] ?? null) ? $path['nodes'] : [];
+
+        for ($i = 0; $i < count($path_nodes); $i += 2) {
+            $xref = (string) $path_nodes[$i];
+            $node_id = 'I|' . $xref;
+            $individual = Registry::individualFactory()->make($xref, $tree);
+
+            if (!$individual instanceof Individual || !$individual->canShow()) {
+                continue;
+            }
+
+            $pedigree_individuals[$node_id] = $individual;
+
+            if (!isset($nodes[$node_id])) {
+                $nodes[$node_id] = [
+                    'id' => $node_id,
+                    'xref' => $xref,
+                    'common' => false,
+                    'endpoint' => in_array($xref, [(string) $detail['first_xref'], (string) $detail['second_xref']], true),
+                    'endpointLabel' => $xref === (string) $detail['first_xref'] ? I18N::translate('Person 1') : ($xref === (string) $detail['second_xref'] ? I18N::translate('Person 2') : ''),
+                    'paths' => [],
+                ];
+            }
+
+            $nodes[$node_id]['common'] = isset($common[$xref]) || !empty($nodes[$node_id]['common']);
+            $nodes[$node_id]['paths'][] = $path_index;
+
+            if ($i + 2 >= count($path_nodes)) {
+                continue;
+            }
+
+            $family_xref = (string) $path_nodes[$i + 1];
+            $to_xref = (string) $path_nodes[$i + 2];
+            $to_id = 'I|' . $to_xref;
+            $kind = 'family';
+
+            $family = Registry::familyFactory()->make($family_xref, $tree);
+            if ($family instanceof Family && $family->canShow()) {
+                $spouse_xrefs = $family->spouses()
+                    ->filter(static fn (Individual $person): bool => $person->canShow())
+                    ->map(static fn (Individual $person): string => $person->xref())
+                    ->all();
+                $child_xrefs = $family->children()
+                    ->filter(static fn (Individual $person): bool => $person->canShow())
+                    ->map(static fn (Individual $person): string => $person->xref())
+                    ->all();
+
+                $from_spouse = in_array($xref, $spouse_xrefs, true);
+                $to_spouse = in_array($to_xref, $spouse_xrefs, true);
+                $from_child = in_array($xref, $child_xrefs, true);
+                $to_child = in_array($to_xref, $child_xrefs, true);
+
+                if ($from_spouse && $to_spouse) {
+                    $kind = 'spouse';
+                } elseif (($from_spouse && $to_child) || ($from_child && $to_spouse)) {
+                    $kind = 'parent';
+                } elseif ($from_child && $to_child) {
+                    $kind = 'sibling';
+                }
+            }
+
+            $edge_parts = [$node_id, $to_id];
+            sort($edge_parts);
+            $edge_key = implode('|', $edge_parts) . '|' . $family_xref;
+
+            if (!isset($edges[$edge_key])) {
+                $edges[$edge_key] = [
+                    'from' => $node_id,
+                    'to' => $to_id,
+                    'family' => $family_xref,
+                    'kind' => $kind,
+                    'paths' => [],
+                ];
+            }
+
+            $edges[$edge_key]['paths'][] = $path_index;
+        }
+    }
+
+    foreach ($nodes as &$node) {
+        $node['paths'] = array_values(array_unique($node['paths']));
+    }
+    unset($node);
+
+    foreach ($edges as &$edge) {
+        $edge['paths'] = array_values(array_unique($edge['paths']));
+    }
+    unset($edge);
+
+    $pedigree_graph = [
+        'first' => 'I|' . (string) $detail['first_xref'],
+        'second' => 'I|' . (string) $detail['second_xref'],
+        'nodes' => array_values($nodes),
+        'edges' => array_values($edges),
+        'pathCountShown' => count($paths),
+        'pathCountTotal' => (int) $detail['path_count'],
+    ];
+}
+
+$pedigree_graph_json = $pedigree_graph === null
+    ? 'null'
+    : json_encode($pedigree_graph, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
 ?>
 
 <style>
@@ -26,7 +148,8 @@ use Fisharebest\Webtrees\Individual;
     --potts-rm-border: rgba(110, 110, 110, .28);
     --potts-rm-soft: rgba(127, 127, 127, .08);
     --potts-rm-accent: var(--bs-primary, #0d6efd);
-    --potts-rm-success: var(--bs-success, #198754);
+    --potts-rm-common: var(--bs-success, #198754);
+    --potts-rm-endpoint: var(--bs-primary, #0d6efd);
     max-width: 1600px;
     margin: 0 auto;
 }
@@ -48,7 +171,8 @@ use Fisharebest\Webtrees\Individual;
 .potts-rm-person-slot {
     min-width: 0;
 }
-.potts-rm-person-slot label {
+.potts-rm-person-slot label,
+.potts-rm-control label {
     display: block;
     font-weight: 600;
     margin-bottom: .3rem;
@@ -64,11 +188,6 @@ use Fisharebest\Webtrees\Individual;
 }
 .potts-rm-control {
     min-width: 220px;
-}
-.potts-rm-control label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: .3rem;
 }
 .potts-rm-note {
     font-size: .92rem;
@@ -178,6 +297,15 @@ use Fisharebest\Webtrees\Individual;
 .potts-rm-detail-summary {
     font-size: 1.05rem;
 }
+.potts-rm-badge {
+    display: inline-block;
+    border: 1px solid var(--potts-rm-border);
+    border-radius: 999px;
+    padding: .12rem .5rem;
+    margin: .2rem .25rem 0 0;
+    font-size: .78rem;
+    background: var(--bs-body-bg, #fff);
+}
 .potts-rm-paths {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -194,80 +322,140 @@ use Fisharebest\Webtrees\Individual;
     font-weight: 700;
     margin-bottom: .25rem;
 }
-.potts-rm-badge {
-    display: inline-block;
+.potts-rm-pedigree-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem 1rem;
+    align-items: end;
+    margin: .9rem 0 .75rem;
+    padding: .75rem;
     border: 1px solid var(--potts-rm-border);
-    border-radius: 999px;
-    padding: .12rem .5rem;
-    margin: .2rem .25rem 0 0;
-    font-size: .78rem;
-    background: var(--bs-body-bg, #fff);
+    border-radius: .65rem;
+    background: var(--potts-rm-soft);
 }
-.potts-rm-graph-shell {
-    margin-top: 1rem;
-    border: 1px solid var(--potts-rm-border);
-    border-radius: .75rem;
-    overflow: auto;
-    min-height: 430px;
-    background: var(--bs-body-bg, #fff);
+.potts-rm-pedigree-toolbar .form-check {
+    margin-bottom: .35rem;
 }
-#potts-rm-graph {
-    display: block;
+.potts-rm-pedigree-viewport {
+    position: relative;
     width: 100%;
-    min-width: 760px;
-    min-height: 430px;
+    min-height: 480px;
+    overflow: auto;
+    border: 1px solid var(--potts-rm-border);
+    border-radius: .8rem;
+    background: var(--bs-body-bg, #fff);
 }
-.potts-rm-edge {
-    stroke: var(--bs-secondary-color, #6c757d);
-    stroke-width: 1.7;
-    opacity: .62;
+.potts-rm-pedigree-sizer {
+    position: relative;
+    min-width: 100%;
+    min-height: 480px;
 }
-.potts-rm-family-node {
-    fill: var(--bs-secondary-bg, #e9ecef);
-    stroke: var(--bs-secondary-color, #6c757d);
-    stroke-width: 1.3;
+.potts-rm-pedigree-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
 }
-.potts-rm-person-node rect {
-    fill: var(--bs-body-bg, #fff);
-    stroke: var(--potts-rm-accent);
-    stroke-width: 1.5;
+.potts-rm-pedigree-connectors,
+.potts-rm-pedigree-cards {
+    position: absolute;
+    inset: 0;
 }
-.potts-rm-person-node.endpoint rect {
-    stroke-width: 3;
-}
-.potts-rm-person-node.common rect {
-    stroke: var(--potts-rm-success);
-    stroke-width: 3;
-}
-.potts-rm-person-node text {
-    fill: var(--bs-body-color, #212529);
-    font-size: 13px;
-    font-weight: 600;
+.potts-rm-pedigree-connectors {
+    overflow: visible;
     pointer-events: none;
 }
-.potts-rm-person-node[data-url] {
-    cursor: pointer;
+.potts-rm-pedigree-card {
+    position: absolute;
+    width: 310px;
+    z-index: 2;
 }
-.potts-rm-legend {
+.potts-rm-pedigree-card .wt-chart-box {
+    width: 310px;
+    max-width: 310px;
+    min-height: 84px;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 .18rem .55rem rgba(0, 0, 0, .08);
+}
+.potts-rm-pedigree-card.is-endpoint .wt-chart-box {
+    outline: 3px solid var(--potts-rm-endpoint);
+    outline-offset: 1px;
+    border-radius: .45rem;
+}
+.potts-rm-pedigree-card.is-common .wt-chart-box {
+    outline: 3px solid var(--potts-rm-common);
+    outline-offset: 1px;
+    border-radius: .45rem;
+}
+.potts-rm-pedigree-tag {
+    display: inline-block;
+    position: relative;
+    z-index: 3;
+    margin: 0 0 .32rem .15rem;
+    padding: .12rem .48rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 700;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--potts-rm-border);
+}
+.potts-rm-pedigree-card.is-common .potts-rm-pedigree-tag-common {
+    border-color: var(--potts-rm-common);
+}
+.potts-rm-pedigree-card.is-endpoint .potts-rm-pedigree-tag-endpoint {
+    border-color: var(--potts-rm-endpoint);
+}
+.potts-rm-pedigree-edge {
+    fill: none;
+    stroke: var(--bs-secondary-color, #6c757d);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: .78;
+}
+.potts-rm-pedigree-edge.is-spouse {
+    stroke-dasharray: 8 5;
+}
+.potts-rm-pedigree-edge.is-sibling {
+    stroke-dasharray: 3 4;
+}
+.potts-rm-pedigree-viewport.hide-photos .wt-chart-box-thumbnail {
+    display: none !important;
+}
+.potts-rm-pedigree-viewport.hide-details .wt-chart-box-lifespan,
+.potts-rm-pedigree-viewport.hide-details .wt-chart-box-facts {
+    display: none !important;
+}
+.potts-rm-pedigree-viewport.no-common-highlight .potts-rm-pedigree-card.is-common .wt-chart-box {
+    outline: none;
+}
+.potts-rm-pedigree-legend {
     display: flex;
-    gap: 1rem;
     flex-wrap: wrap;
-    margin-top: .65rem;
-    font-size: .86rem;
+    gap: .5rem 1rem;
+    margin-top: .6rem;
+    font-size: .84rem;
     color: var(--bs-secondary-color, #6c757d);
 }
-.potts-rm-legend-key::before {
+.potts-rm-pedigree-legend span::before {
     content: '';
     display: inline-block;
-    width: 1.2rem;
-    height: .65rem;
-    margin-right: .35rem;
+    width: 1.35rem;
+    height: .68rem;
+    margin-right: .32rem;
     vertical-align: middle;
-    border: 2px solid var(--potts-rm-accent);
+    border: 2px solid var(--potts-rm-endpoint);
     border-radius: .15rem;
 }
-.potts-rm-legend-key.common::before {
-    border-color: var(--potts-rm-success);
+.potts-rm-pedigree-legend .common::before {
+    border-color: var(--potts-rm-common);
+}
+.potts-rm-pedigree-legend .spouse::before {
+    width: 1.6rem;
+    height: 0;
+    border: 0;
+    border-top: 2px dashed var(--bs-secondary-color, #6c757d);
+    border-radius: 0;
 }
 @media (max-width: 900px) {
     .potts-rm-options-grid {
@@ -275,6 +463,11 @@ use Fisharebest\Webtrees\Individual;
     }
     .potts-rm-panel {
         padding: .8rem;
+    }
+    .potts-rm-pedigree-card,
+    .potts-rm-pedigree-card .wt-chart-box {
+        width: 280px;
+        max-width: 280px;
     }
 }
 </style>
@@ -284,7 +477,7 @@ use Fisharebest\Webtrees\Individual;
 
     <div class="potts-rm-intro mb-3">
         <p class="mb-1">
-            <?= I18N::translate('Compare a group of people, inspect multiple relationship paths and open a merged graphical view of the connections between any pair.') ?>
+            <?= I18N::translate('Compare a group of people, inspect multiple relationship paths and open a pedigree-style graphical view of the connections between any pair.') ?>
         </p>
         <div class="potts-rm-note">
             <?= I18N::translate('Common-ancestor mode follows parent-child links recorded in the GEDCOM. It should not be interpreted as proof of a genetic relationship where adoption, fostering or other parentage types are recorded.') ?>
@@ -359,7 +552,6 @@ use Fisharebest\Webtrees\Individual;
                         <?php endif ?>
                     </div>
                 </div>
-                <span class="potts-rm-badge">v<?= e($version) ?></span>
             </div>
 
             <div class="potts-rm-table-wrap">
@@ -437,17 +629,71 @@ use Fisharebest\Webtrees\Individual;
                 </a>
             </div>
 
-            <?php if ((int) $detail['path_count'] > 0) : ?>
-                <h4 class="h5 mt-4 mb-2"><?= I18N::translate('Merged relationship graph') ?></h4>
+            <?php if ((int) $detail['path_count'] > 0 && is_array($pedigree_graph)) : ?>
+                <h4 class="h5 mt-4 mb-1"><?= I18N::translate('Graphical relationship') ?></h4>
                 <div class="potts-rm-note">
-                    <?= I18N::translate('The graph merges people and families that occur in several paths. Green outlines identify common ancestors in common-ancestor mode.') ?>
+                    <?= I18N::translate('This view uses the same person cards as webtrees pedigree charts. Shared people are merged and common ancestors are highlighted.') ?>
                 </div>
-                <div class="potts-rm-graph-shell">
-                    <svg id="potts-rm-graph" role="img" aria-label="<?= e(I18N::translate('Relationship network graph')) ?>"></svg>
+
+                <div class="potts-rm-pedigree-toolbar d-print-none">
+                    <div class="potts-rm-control" style="min-width: 190px">
+                        <label for="potts-rm-chart-paths"><?= I18N::translate('Paths to display') ?></label>
+                        <select class="form-select form-select-sm" id="potts-rm-chart-paths">
+                            <option value="closest"><?= I18N::translate('Closest path') ?></option>
+                            <option value="all" selected><?= I18N::translate('All paths shown') ?></option>
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="potts-rm-show-photos" checked>
+                        <label class="form-check-label" for="potts-rm-show-photos"><?= I18N::translate('Show photos') ?></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="potts-rm-show-details" checked>
+                        <label class="form-check-label" for="potts-rm-show-details"><?= I18N::translate('Show dates and places') ?></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="potts-rm-highlight-common" checked>
+                        <label class="form-check-label" for="potts-rm-highlight-common"><?= I18N::translate('Highlight common ancestors') ?></label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="potts-rm-fit-width" checked>
+                        <label class="form-check-label" for="potts-rm-fit-width"><?= I18N::translate('Fit chart to width') ?></label>
+                    </div>
                 </div>
-                <div class="potts-rm-legend">
-                    <span class="potts-rm-legend-key"><?= I18N::translate('Selected endpoint') ?></span>
-                    <span class="potts-rm-legend-key common"><?= I18N::translate('Common ancestor') ?></span>
+
+                <div class="potts-rm-pedigree-viewport" id="potts-rm-pedigree-viewport">
+                    <div class="potts-rm-pedigree-sizer" id="potts-rm-pedigree-sizer">
+                        <div class="potts-rm-pedigree-canvas" id="potts-rm-pedigree-canvas">
+                            <svg class="potts-rm-pedigree-connectors" id="potts-rm-pedigree-connectors" aria-hidden="true"></svg>
+                            <div class="potts-rm-pedigree-cards" id="potts-rm-pedigree-cards">
+                                <?php foreach ($pedigree_graph['nodes'] as $node) : ?>
+                                    <?php $individual = $pedigree_individuals[$node['id']] ?? null ?>
+                                    <?php if (!$individual instanceof Individual) : ?>
+                                        <?php continue ?>
+                                    <?php endif ?>
+                                    <div
+                                        class="potts-rm-pedigree-card<?= !empty($node['endpoint']) ? ' is-endpoint' : '' ?><?= !empty($node['common']) ? ' is-common' : '' ?>"
+                                        data-node-id="<?= e((string) $node['id']) ?>"
+                                        data-paths="<?= e(implode(',', $node['paths'])) ?>"
+                                    >
+                                        <?php if (!empty($node['endpointLabel'])) : ?>
+                                            <span class="potts-rm-pedigree-tag potts-rm-pedigree-tag-endpoint"><?= e((string) $node['endpointLabel']) ?></span>
+                                        <?php endif ?>
+                                        <?php if (!empty($node['common'])) : ?>
+                                            <span class="potts-rm-pedigree-tag potts-rm-pedigree-tag-common"><?= I18N::translate('Common ancestor') ?></span>
+                                        <?php endif ?>
+                                        <?= view('chart-box', ['individual' => $individual]) ?>
+                                    </div>
+                                <?php endforeach ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="potts-rm-pedigree-legend">
+                    <span><?= I18N::translate('Selected people') ?></span>
+                    <span class="common"><?= I18N::translate('Common ancestor') ?></span>
+                    <span class="spouse"><?= I18N::translate('Spouse link') ?></span>
                 </div>
 
                 <h4 class="h5 mt-4"><?= I18N::translate('Paths') ?></h4>
@@ -501,171 +747,226 @@ use Fisharebest\Webtrees\Individual;
         updateRecursionVisibility();
     }
 
-    const data = <?= $graph_json ?>;
-    const svg = document.getElementById('potts-rm-graph');
+    const graph = <?= $pedigree_graph_json ?>;
+    const viewport = document.getElementById('potts-rm-pedigree-viewport');
+    const sizer = document.getElementById('potts-rm-pedigree-sizer');
+    const canvas = document.getElementById('potts-rm-pedigree-canvas');
+    const connectorSvg = document.getElementById('potts-rm-pedigree-connectors');
+    const cardsLayer = document.getElementById('potts-rm-pedigree-cards');
+    const pathSelector = document.getElementById('potts-rm-chart-paths');
+    const showPhotos = document.getElementById('potts-rm-show-photos');
+    const showDetails = document.getElementById('potts-rm-show-details');
+    const highlightCommon = document.getElementById('potts-rm-highlight-common');
+    const fitWidth = document.getElementById('potts-rm-fit-width');
 
-    if (!svg || !data || !Array.isArray(data.nodes) || data.nodes.length === 0) {
+    if (!graph || !viewport || !sizer || !canvas || !connectorSvg || !cardsLayer) {
         return;
     }
 
-    const NS = 'http://www.w3.org/2000/svg';
-    const nodeMap = new Map(data.nodes.map(node => [node.id, node]));
-    const adjacency = new Map();
-
-    data.nodes.forEach(node => adjacency.set(node.id, []));
-    data.edges.forEach(edge => {
-        if (adjacency.has(edge.from) && adjacency.has(edge.to)) {
-            adjacency.get(edge.from).push(edge.to);
-            adjacency.get(edge.to).push(edge.from);
-        }
+    const cardElements = new Map();
+    cardsLayer.querySelectorAll('[data-node-id]').forEach(card => {
+        cardElements.set(card.dataset.nodeId, card);
     });
 
-    const level = new Map();
-    const queue = [data.first];
-    level.set(data.first, 0);
+    const nodeMap = new Map(graph.nodes.map(node => [node.id, node]));
+    let canvasWidth = 900;
+    let canvasHeight = 480;
 
-    for (let cursor = 0; cursor < queue.length; cursor++) {
-        const current = queue[cursor];
-        const currentLevel = level.get(current) || 0;
-        (adjacency.get(current) || []).forEach(next => {
-            if (!level.has(next)) {
-                level.set(next, currentLevel + 1);
-                queue.push(next);
-            }
-        });
+    function activePathIndexes() {
+        if (pathSelector && pathSelector.value === 'closest') {
+            return new Set([0]);
+        }
+        return new Set(Array.from({length: graph.pathCountShown || 1}, (_, index) => index));
     }
 
-    let maxLevel = 0;
-    data.nodes.forEach(node => {
-        if (!level.has(node.id)) {
-            level.set(node.id, maxLevel + 1);
-        }
-        maxLevel = Math.max(maxLevel, level.get(node.id));
-    });
+    function edgeIsActive(edge, activePaths) {
+        return Array.isArray(edge.paths) && edge.paths.some(path => activePaths.has(path));
+    }
 
-    const columns = new Map();
-    data.nodes.forEach(node => {
-        const column = level.get(node.id) || 0;
-        if (!columns.has(column)) {
-            columns.set(column, []);
+    function nodeIsActive(node, activePaths, activeEdges) {
+        if (node.id === graph.first || node.id === graph.second) {
+            return true;
         }
-        columns.get(column).push(node);
-    });
+        if (Array.isArray(node.paths) && node.paths.some(path => activePaths.has(path))) {
+            return true;
+        }
+        return activeEdges.some(edge => edge.from === node.id || edge.to === node.id);
+    }
 
-    columns.forEach(nodes => {
-        nodes.sort((a, b) => {
-            if (a.type !== b.type) {
-                return a.type === 'individual' ? -1 : 1;
-            }
-            return String(a.label).localeCompare(String(b.label));
+    function applyDisplayOptions() {
+        viewport.classList.toggle('hide-photos', showPhotos && !showPhotos.checked);
+        viewport.classList.toggle('hide-details', showDetails && !showDetails.checked);
+        viewport.classList.toggle('no-common-highlight', highlightCommon && !highlightCommon.checked);
+    }
+
+    function buildLayout() {
+        applyDisplayOptions();
+
+        const activePaths = activePathIndexes();
+        const activeEdges = graph.edges.filter(edge => edgeIsActive(edge, activePaths));
+        const activeNodes = graph.nodes.filter(node => nodeIsActive(node, activePaths, activeEdges) && cardElements.has(node.id));
+        const activeIds = new Set(activeNodes.map(node => node.id));
+
+        cardElements.forEach((element, id) => {
+            element.style.display = activeIds.has(id) ? '' : 'none';
         });
-    });
 
-    const columnWidth = 205;
-    const side = 115;
-    const width = Math.max(760, side * 2 + maxLevel * columnWidth);
-    let maxRows = 1;
-    columns.forEach(nodes => { maxRows = Math.max(maxRows, nodes.length); });
-    const height = Math.max(430, 110 + maxRows * 100);
-    const positions = new Map();
+        const adjacency = new Map();
+        activeNodes.forEach(node => adjacency.set(node.id, []));
+        activeEdges.forEach(edge => {
+            if (activeIds.has(edge.from) && activeIds.has(edge.to)) {
+                adjacency.get(edge.from).push(edge.to);
+                adjacency.get(edge.to).push(edge.from);
+            }
+        });
 
-    columns.forEach((nodes, column) => {
-        nodes.forEach((node, index) => {
-            positions.set(node.id, {
-                x: side + column * columnWidth,
-                y: ((index + 1) * height) / (nodes.length + 1)
+        const levels = new Map();
+        const queue = [];
+        if (activeIds.has(graph.first)) {
+            levels.set(graph.first, 0);
+            queue.push(graph.first);
+        }
+
+        for (let cursor = 0; cursor < queue.length; cursor++) {
+            const current = queue[cursor];
+            const currentLevel = levels.get(current) || 0;
+            (adjacency.get(current) || []).forEach(next => {
+                if (!levels.has(next)) {
+                    levels.set(next, currentLevel + 1);
+                    queue.push(next);
+                }
+            });
+        }
+
+        let fallbackLevel = Math.max(0, ...Array.from(levels.values()));
+        activeNodes.forEach(node => {
+            if (!levels.has(node.id)) {
+                fallbackLevel += 1;
+                levels.set(node.id, fallbackLevel);
+            }
+        });
+
+        const columns = new Map();
+        activeNodes.forEach(node => {
+            const level = levels.get(node.id) || 0;
+            if (!columns.has(level)) {
+                columns.set(level, []);
+            }
+            columns.get(level).push(node);
+        });
+
+        columns.forEach(nodes => {
+            nodes.sort((a, b) => {
+                const aPath = Math.min(...(a.paths || [999]));
+                const bPath = Math.min(...(b.paths || [999]));
+                if (aPath !== bPath) {
+                    return aPath - bPath;
+                }
+                if (a.common !== b.common) {
+                    return a.common ? -1 : 1;
+                }
+                return String(a.xref).localeCompare(String(b.xref));
             });
         });
-    });
 
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        const cardWidth = window.matchMedia('(max-width: 900px)').matches ? 280 : 310;
+        const columnGap = 105;
+        const columnWidth = cardWidth + columnGap;
+        const topPadding = 34;
+        const leftPadding = 34;
+        const rowGap = 28;
+        const positions = new Map();
+        let maxColumnHeight = 0;
+        let maxLevel = 0;
 
-    function el(name, attrs) {
-        const element = document.createElementNS(NS, name);
-        Object.entries(attrs || {}).forEach(([key, value]) => element.setAttribute(key, String(value)));
-        return element;
+        Array.from(columns.keys()).sort((a, b) => a - b).forEach(level => {
+            maxLevel = Math.max(maxLevel, level);
+            let y = topPadding;
+            (columns.get(level) || []).forEach(node => {
+                const card = cardElements.get(node.id);
+                if (!card) {
+                    return;
+                }
+                card.style.left = `${leftPadding + level * columnWidth}px`;
+                card.style.top = `${y}px`;
+                const height = Math.max(90, card.offsetHeight);
+                positions.set(node.id, {
+                    x: leftPadding + level * columnWidth,
+                    y: y,
+                    width: cardWidth,
+                    height: height
+                });
+                y += height + rowGap;
+            });
+            maxColumnHeight = Math.max(maxColumnHeight, y + topPadding);
+        });
+
+        canvasWidth = Math.max(900, leftPadding * 2 + (maxLevel + 1) * cardWidth + maxLevel * columnGap);
+        canvasHeight = Math.max(480, maxColumnHeight);
+        canvas.style.width = `${canvasWidth}px`;
+        canvas.style.height = `${canvasHeight}px`;
+        cardsLayer.style.width = `${canvasWidth}px`;
+        cardsLayer.style.height = `${canvasHeight}px`;
+        connectorSvg.setAttribute('width', String(canvasWidth));
+        connectorSvg.setAttribute('height', String(canvasHeight));
+        connectorSvg.setAttribute('viewBox', `0 0 ${canvasWidth} ${canvasHeight}`);
+        connectorSvg.innerHTML = '';
+
+        const NS = 'http://www.w3.org/2000/svg';
+        activeEdges.forEach(edge => {
+            const from = positions.get(edge.from);
+            const to = positions.get(edge.to);
+            if (!from || !to) {
+                return;
+            }
+
+            let start = from;
+            let end = to;
+            if (start.x > end.x) {
+                start = to;
+                end = from;
+            }
+
+            const x1 = start.x + start.width;
+            const y1 = start.y + start.height / 2;
+            const x2 = end.x;
+            const y2 = end.y + end.height / 2;
+            const middleX = x1 + Math.max(28, (x2 - x1) / 2);
+            const path = document.createElementNS(NS, 'path');
+            path.setAttribute('d', `M ${x1} ${y1} H ${middleX} V ${y2} H ${x2}`);
+            path.setAttribute('class', `potts-rm-pedigree-edge is-${edge.kind || 'family'}`);
+            connectorSvg.appendChild(path);
+        });
+
+        applyScale();
     }
 
-    data.edges.forEach(edge => {
-        const from = positions.get(edge.from);
-        const to = positions.get(edge.to);
-        if (!from || !to) {
-            return;
+    function applyScale() {
+        let scale = 1;
+        if (fitWidth && fitWidth.checked && canvasWidth > 0) {
+            scale = Math.min(1, Math.max(.28, (viewport.clientWidth - 22) / canvasWidth));
         }
-        svg.appendChild(el('line', {
-            x1: from.x,
-            y1: from.y,
-            x2: to.x,
-            y2: to.y,
-            class: 'potts-rm-edge'
-        }));
+        canvas.style.transform = `scale(${scale})`;
+        sizer.style.width = `${Math.max(viewport.clientWidth, canvasWidth * scale)}px`;
+        sizer.style.height = `${Math.max(480, canvasHeight * scale)}px`;
+    }
+
+    [pathSelector, showPhotos, showDetails, highlightCommon].forEach(control => {
+        if (control) {
+            control.addEventListener('change', () => {
+                window.requestAnimationFrame(() => buildLayout());
+            });
+        }
     });
 
-    data.nodes.forEach(node => {
-        const pos = positions.get(node.id);
-        if (!pos) {
-            return;
-        }
+    if (fitWidth) {
+        fitWidth.addEventListener('change', applyScale);
+    }
 
-        if (node.type === 'family') {
-            const group = el('g', {transform: `translate(${pos.x} ${pos.y})`});
-            group.appendChild(el('rect', {
-                x: -8,
-                y: -8,
-                width: 16,
-                height: 16,
-                rx: 2,
-                transform: 'rotate(45)',
-                class: 'potts-rm-family-node'
-            }));
-            const title = el('title');
-            title.textContent = node.label || 'Family';
-            group.appendChild(title);
-            svg.appendChild(group);
-            return;
-        }
-
-        const classes = ['potts-rm-person-node'];
-        if (node.endpoint) classes.push('endpoint');
-        if (node.common) classes.push('common');
-
-        const group = el('g', {
-            transform: `translate(${pos.x} ${pos.y})`,
-            class: classes.join(' ')
-        });
-
-        if (node.url) {
-            group.setAttribute('data-url', node.url);
-            group.setAttribute('tabindex', '0');
-            group.setAttribute('role', 'link');
-        }
-
-        group.appendChild(el('rect', {x: -82, y: -27, width: 164, height: 54, rx: 8}));
-        const text = el('text', {x: 0, y: 4, 'text-anchor': 'middle'});
-        const label = String(node.label || node.xref || '');
-        text.textContent = label.length > 24 ? label.slice(0, 23) + '…' : label;
-        group.appendChild(text);
-
-        const title = el('title');
-        title.textContent = label;
-        group.appendChild(title);
-
-        function openNode() {
-            if (node.url) {
-                window.location.href = node.url;
-            }
-        }
-
-        group.addEventListener('click', openNode);
-        group.addEventListener('keydown', event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                openNode();
-            }
-        });
-
-        svg.appendChild(group);
+    window.addEventListener('resize', () => {
+        window.requestAnimationFrame(() => buildLayout());
     });
+
+    window.requestAnimationFrame(() => buildLayout());
 })();
 </script>
