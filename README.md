@@ -16,13 +16,16 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 - Open a pair analysis showing grouped relationship routes.
 - Display pair relationships as a merged pedigree-style graphical relationship chart.
 - **Graph three or more selected people together** from the ancestor or ancestral family shared by everyone.
-- Merge overlapping descendant branches in the multi-person graph rather than repeating the same person for each selected endpoint.
+- Draw the multi-person graph **top-down**, with shared ancestry at the top and descendants flowing down through generations.
+- Merge overlapping descendant branches rather than repeating the same person for each selected endpoint.
+- Label each selected person relative to **Person 1**, for example `elder brother`, `first cousin` or `second cousin`.
+- Keep the full matrix available for every pairwise relationship while using Person 1 as the uncluttered reference in the multi-person graph.
 - Switch between the nearest shared ancestor/family and additional shared ancestors.
 - Reuse webtrees' native person cards, including photographs, lifespan and configured chart-box facts.
 - Highlight common/shared ancestors and selected endpoints.
 - Show generation distance from shared ancestry to each selected person.
-- Toggle photos, dates/places, ancestor highlighting and fit-to-width.
-- Show relationship cards at normal size by default, using horizontal scrolling for wide relationships; fit-to-width remains an explicit optional view.
+- Toggle photos, dates/places, relationship labels, ancestor highlighting and fit-to-width.
+- Show relationship cards at normal size by default, with scrolling for larger graphs; fit-to-width remains an explicit optional view.
 - Use webtrees relationship labels and privacy checks rather than maintaining a separate genealogy database.
 
 ## Relationship modes
@@ -43,7 +46,7 @@ Click a non-diagonal relationship-matrix cell to open the pair analysis. The gra
 
 Shared people are merged where practical. Selected people receive endpoint highlighting and common ancestors receive separate highlighting. Where two common ancestors form the same grouped route, they are treated as one shared ancestral family.
 
-The default presentation keeps person cards at their normal readable size and allows horizontal scrolling where necessary. **Fit chart to width** can still be enabled manually when an overview is more useful than full-size cards.
+The default presentation keeps person cards at their normal readable size and allows scrolling where necessary. **Fit chart to width** can still be enabled manually when an overview is more useful than full-size cards.
 
 ## Multi-person shared ancestry graph
 
@@ -51,13 +54,13 @@ Select at least three people and choose **Graph selected people**. The module ca
 
 The default **Nearest shared ancestor** mode selects the closest shared ancestor or ancestral family according to the generation distances from all selected people. If two ancestors are reached through the same descendant-family paths, they are grouped as one shared ancestral family — for example, a shared grandparent couple.
 
-The graph is then built from the shared ancestry down to every selected person. Intermediate people and overlapping descendant branches are merged so the result behaves like one pedigree network rather than several pair charts placed beside each other.
+The graph is drawn top-down. Shared ancestor cards appear at the top, subsequent generations are arranged on rows below them and the selected people appear further down the descendant branches. Intermediate people and overlapping branches are merged so the result behaves like one pedigree network rather than several pair charts placed beside each other.
+
+Relationship badges on selected people use **Person 1 as the reference**. This avoids trying to display every possible pairwise relationship on the graph. The matrix remains the authoritative place to inspect all pair-to-pair relationships.
 
 **More shared ancestors** can display additional shared ancestry groups within the current ancestor search limit. This is intended for exploring older common ancestry and pedigree-collapse situations and remains an alpha feature.
 
 For each shared ancestry group, the panel reports the generation distance to every selected person.
-
-A good live-tree test is to choose three descendants who are already known to come from one ancestral couple. The expected result is one highlighted shared ancestral family at the start of the graph with three descendant branches that merge wherever the selected people share more recent ancestors.
 
 ## Requirements
 
@@ -85,7 +88,7 @@ Because this is an alpha, privacy behaviour should be tested while signed out an
 
 ## Status
 
-Current development version: `0.1.0-alpha.8`.
+Current development version: `0.1.0-alpha.9`.
 
 The multi-person graph currently chooses the shortest visible path from each selected person to each shared ancestor. More complex pedigree-collapse path selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
 
