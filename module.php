@@ -34,7 +34,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.5';
+    private const VERSION = '0.1.0-alpha.6';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
@@ -238,13 +238,18 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
                 if (!array_key_exists($signature, $route_by_signature)) {
                     $route_index = count($routes);
                     $route_by_signature[$signature] = $route_index;
+                    $family_xref = $this->routeFamilyXref($name_nodes, $path['l1'] ?? null, $path['l2'] ?? null);
+                    [$left_branch_xref, $right_branch_xref] = $this->routeBranchXrefs($name_nodes, $path['l1'] ?? null, $path['l2'] ?? null);
+
                     $routes[$route_index] = [
                         'name' => (string) $path['name'],
                         'steps' => (int) $path['steps'],
                         'l1' => $path['l1'] ?? null,
                         'l2' => $path['l2'] ?? null,
                         'name_nodes' => $name_nodes,
-                        'family_xref' => $this->routeFamilyXref($name_nodes, $path['l1'] ?? null, $path['l2'] ?? null),
+                        'family_xref' => $family_xref,
+                        'left_branch_xref' => $left_branch_xref,
+                        'right_branch_xref' => $right_branch_xref,
                         'common_ancestors' => [],
                         'source_path_count' => 0,
                         'contains_spouse_link' => false,
@@ -336,6 +341,29 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
         return (string) $name_nodes[$family_index];
     }
 
+    /**
+     * Find the two descendant-side individuals immediately adjacent to the
+     * shared ancestral family in the normalised relationship path.
+     *
+     * @param array<int,string> $name_nodes
+     * @return array{0:?string,1:?string}
+     */
+    private function routeBranchXrefs(array $name_nodes, mixed $l1, mixed $l2): array
+    {
+        if (!is_int($l1) || !is_int($l2) || $l1 <= 0 || $l2 <= 0) {
+            return [null, null];
+        }
+
+        $family_index = 2 * $l1 - 1;
+        $left_index = $family_index - 1;
+        $right_index = $family_index + 1;
+
+        return [
+            isset($name_nodes[$left_index]) ? (string) $name_nodes[$left_index] : null,
+            isset($name_nodes[$right_index]) ? (string) $name_nodes[$right_index] : null,
+        ];
+    }
+
     /** @return array<string,mixed> */
     private function cellForDirection(array $result, string $key, Tree $tree, bool $reverse): array
     {
@@ -413,14 +441,23 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
 .potts-rm-family-unit-overlay {
     fill: none;
     stroke: var(--potts-rm-common, var(--bs-success, #198754));
-    stroke-width: 2;
+    stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
-    opacity: .8;
+    opacity: .9;
 }
 .potts-rm-family-unit-junction {
     fill: var(--potts-rm-common, var(--bs-success, #198754));
-    opacity: .85;
+    opacity: .95;
+}
+.potts-rm-family-unit-label {
+    fill: var(--bs-secondary-color, #6c757d);
+    font-size: 12px;
+    font-weight: 600;
+    text-anchor: middle;
+}
+.potts-rm-pedigree-viewport {
+    scroll-behavior: smooth;
 }
 </style>
 HTML;
@@ -482,6 +519,8 @@ HTML;
                     'l1' => is_int($route['l1'] ?? null) ? (int) $route['l1'] : null,
                     'l2' => is_int($route['l2'] ?? null) ? (int) $route['l2'] : null,
                     'family_xref' => is_string($route['family_xref'] ?? null) ? (string) $route['family_xref'] : null,
+                    'left_branch_xref' => is_string($route['left_branch_xref'] ?? null) ? (string) $route['left_branch_xref'] : null,
+                    'right_branch_xref' => is_string($route['right_branch_xref'] ?? null) ? (string) $route['right_branch_xref'] : null,
                     'common_ancestors' => $ancestors,
                     'source_path_count' => (int) ($route['source_path_count'] ?? 1),
                 ];
@@ -515,10 +554,13 @@ HTML;
                     'all_routes' => I18N::translate('All grouped routes shown'),
                     'routes_heading' => I18N::translate('Relationship routes'),
                     'route' => I18N::translate('Route'),
-                    'family_step' => I18N::translate('family step'),
-                    'family_steps' => I18N::translate('family steps'),
+                    'generation_up' => I18N::translate('generation up'),
+                    'generations_up' => I18N::translate('generations up'),
+                    'generation_down' => I18N::translate('generation down'),
+                    'generations_down' => I18N::translate('generations down'),
                     'common_ancestor' => I18N::translate('Common ancestor'),
                     'common_ancestors' => I18N::translate('Common ancestors'),
+                    'shared_family' => I18N::translate('Shared ancestral family'),
                 ],
             ];
         }
@@ -582,6 +624,17 @@ if (selector) {
     }
 }
 
+function generationText(route) {
+    const parts = [];
+    if (Number.isInteger(route.l1) && route.l1 > 0) {
+        parts.push(route.l1 + ' ' + (route.l1 === 1 ? routeDetail.labels.generation_up : routeDetail.labels.generations_up));
+    }
+    if (Number.isInteger(route.l2) && route.l2 > 0) {
+        parts.push(route.l2 + ' ' + (route.l2 === 1 ? routeDetail.labels.generation_down : routeDetail.labels.generations_down));
+    }
+    return parts.join(' · ');
+}
+
 const pathGrid = detail.querySelector('.potts-rm-paths');
 if (pathGrid) {
     const sectionHeading = pathGrid.previousElementSibling;
@@ -599,16 +652,11 @@ if (pathGrid) {
         title.textContent = routeDetail.labels.route + ' ' + (index + 1) + ' — ' + route.name;
         article.appendChild(title);
 
-        const stepBadge = document.createElement('span');
-        stepBadge.className = 'potts-rm-badge';
-        const steps = Number(route.steps || 0);
-        stepBadge.textContent = steps + ' ' + (steps === 1 ? routeDetail.labels.family_step : routeDetail.labels.family_steps);
-        article.appendChild(stepBadge);
-
-        if (Number.isInteger(route.l1) && Number.isInteger(route.l2)) {
+        const generation = generationText(route);
+        if (generation !== '') {
             const generationBadge = document.createElement('span');
             generationBadge.className = 'potts-rm-badge';
-            generationBadge.textContent = route.l1 + ' ↑ / ' + route.l2 + ' ↓';
+            generationBadge.textContent = generation;
             article.appendChild(generationBadge);
         }
 
@@ -626,59 +674,128 @@ if (pathGrid) {
     });
 }
 
+function cardForXref(cardsLayer, xref) {
+    if (!xref) return null;
+    return cardsLayer.querySelector('[data-node-id="I|' + CSS.escape(xref) + '"]');
+}
+
+function visibleCardPosition(card) {
+    if (!card || card.style.display === 'none') return null;
+    return {
+        x: card.offsetLeft,
+        y: card.offsetTop,
+        width: card.offsetWidth,
+        height: card.offsetHeight,
+        cx: card.offsetLeft + card.offsetWidth / 2,
+        cy: card.offsetTop + card.offsetHeight / 2
+    };
+}
+
+function appendPath(svg, d, className) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('class', className || 'potts-rm-family-unit-overlay');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    return path;
+}
+
+function appendJunction(svg, x, y) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const junction = document.createElementNS(NS, 'circle');
+    junction.setAttribute('class', 'potts-rm-family-unit-junction');
+    junction.setAttribute('cx', String(x));
+    junction.setAttribute('cy', String(y));
+    junction.setAttribute('r', '4');
+    svg.appendChild(junction);
+}
+
 function drawFamilyUnits() {
     const svg = document.getElementById('potts-rm-pedigree-connectors');
     const cardsLayer = document.getElementById('potts-rm-pedigree-cards');
     if (!svg || !cardsLayer) return;
 
-    svg.querySelectorAll('.potts-rm-family-unit-overlay, .potts-rm-family-unit-junction').forEach(node => node.remove());
+    svg.querySelectorAll('.potts-rm-family-unit-overlay, .potts-rm-family-unit-junction, .potts-rm-family-unit-label').forEach(node => node.remove());
     const NS = 'http://www.w3.org/2000/svg';
 
     routeDetail.routes.forEach(function (route) {
         if (!route.family_xref || !Array.isArray(route.common_ancestors) || route.common_ancestors.length < 2) return;
 
-        const cards = route.common_ancestors
-            .map(ancestor => cardsLayer.querySelector('[data-node-id="I|' + CSS.escape(ancestor.xref) + '"]'))
+        const parentCards = route.common_ancestors
+            .map(ancestor => cardForXref(cardsLayer, ancestor.xref))
             .filter(card => card && card.style.display !== 'none');
-        if (cards.length < 2) return;
+        if (parentCards.length < 2) return;
 
-        const positions = cards.map(card => ({
-            x: card.offsetLeft,
-            y: card.offsetTop,
-            width: card.offsetWidth,
-            height: card.offsetHeight,
-            cy: card.offsetTop + card.offsetHeight / 2
-        }));
+        const parents = parentCards.map(visibleCardPosition).filter(Boolean);
+        if (parents.length < 2) return;
 
-        const groupX = Math.min(...positions.map(pos => pos.x)) - 18;
-        const minY = Math.min(...positions.map(pos => pos.cy));
-        const maxY = Math.max(...positions.map(pos => pos.cy));
+        const minX = Math.min(...parents.map(pos => pos.x));
+        const maxRight = Math.max(...parents.map(pos => pos.x + pos.width));
+        const minY = Math.min(...parents.map(pos => pos.cy));
+        const maxY = Math.max(...parents.map(pos => pos.cy));
         const middleY = (minY + maxY) / 2;
+        const leftSpineX = minX - 18;
+        const rightSpineX = maxRight + 18;
 
-        const spine = document.createElementNS(NS, 'path');
-        spine.setAttribute('class', 'potts-rm-family-unit-overlay');
-        spine.setAttribute('d', 'M ' + groupX + ' ' + minY + ' V ' + maxY);
-        svg.appendChild(spine);
+        appendPath(svg, 'M ' + leftSpineX + ' ' + minY + ' V ' + maxY);
+        appendPath(svg, 'M ' + rightSpineX + ' ' + minY + ' V ' + maxY);
 
-        positions.forEach(function (pos) {
-            const tick = document.createElementNS(NS, 'path');
-            tick.setAttribute('class', 'potts-rm-family-unit-overlay');
-            tick.setAttribute('d', 'M ' + groupX + ' ' + pos.cy + ' H ' + pos.x);
-            svg.appendChild(tick);
+        parents.forEach(function (pos) {
+            appendPath(svg, 'M ' + leftSpineX + ' ' + pos.cy + ' H ' + pos.x);
+            appendPath(svg, 'M ' + (pos.x + pos.width) + ' ' + pos.cy + ' H ' + rightSpineX);
         });
 
-        const junction = document.createElementNS(NS, 'circle');
-        junction.setAttribute('class', 'potts-rm-family-unit-junction');
-        junction.setAttribute('cx', String(groupX));
-        junction.setAttribute('cy', String(middleY));
-        junction.setAttribute('r', '4');
-        svg.appendChild(junction);
+        appendJunction(svg, leftSpineX, middleY);
+        appendJunction(svg, rightSpineX, middleY);
+
+        const leftBranch = visibleCardPosition(cardForXref(cardsLayer, route.left_branch_xref));
+        const rightBranch = visibleCardPosition(cardForXref(cardsLayer, route.right_branch_xref));
+
+        if (leftBranch) {
+            const startX = leftBranch.x + leftBranch.width;
+            const elbowX = Math.max(startX + 18, leftSpineX - 26);
+            appendPath(svg, 'M ' + startX + ' ' + leftBranch.cy + ' H ' + elbowX + ' V ' + middleY + ' H ' + leftSpineX);
+        }
+
+        if (rightBranch) {
+            const endX = rightBranch.x;
+            const elbowX = Math.min(endX - 18, rightSpineX + 26);
+            appendPath(svg, 'M ' + rightSpineX + ' ' + middleY + ' H ' + elbowX + ' V ' + rightBranch.cy + ' H ' + endX);
+        }
+
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('class', 'potts-rm-family-unit-label');
+        label.setAttribute('x', String((minX + maxRight) / 2));
+        label.setAttribute('y', String(Math.max(14, Math.min(...parents.map(pos => pos.y)) - 8)));
+        label.textContent = routeDetail.labels.shared_family;
+        svg.appendChild(label);
     });
+}
+
+let autoFitReviewed = false;
+function protectReadableCardSize() {
+    if (autoFitReviewed) return;
+    autoFitReviewed = true;
+
+    const fitWidth = document.getElementById('potts-rm-fit-width');
+    const viewport = document.getElementById('potts-rm-pedigree-viewport');
+    const canvas = document.getElementById('potts-rm-pedigree-canvas');
+    if (!fitWidth || !viewport || !canvas || !fitWidth.checked) return;
+
+    const naturalWidth = parseFloat(canvas.style.width || '0');
+    if (naturalWidth > 0 && viewport.clientWidth > 0 && naturalWidth / viewport.clientWidth > 1.35) {
+        fitWidth.checked = false;
+        fitWidth.dispatchEvent(new Event('change', {bubbles: true}));
+        viewport.scrollLeft = 0;
+    }
 }
 
 function scheduleFamilyUnits() {
     window.requestAnimationFrame(function () {
-        window.requestAnimationFrame(drawFamilyUnits);
+        window.requestAnimationFrame(function () {
+            protectReadableCardSize();
+            drawFamilyUnits();
+        });
     });
 }
 
