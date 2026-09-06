@@ -30,7 +30,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.2';
+    private const VERSION = '0.1.0-alpha.3';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
