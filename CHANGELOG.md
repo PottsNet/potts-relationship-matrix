@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.7
+
+- Makes the graphical relationship chart readable by default rather than relying on automatic width fitting.
+- Starts relationship cards at normal size and uses horizontal scrolling where the relationship is wider than the viewport.
+- Leaves **Fit chart to width** available as an explicit user option instead of the default presentation.
+- Removes the hard 480 px visual minimum from the rendered relationship viewport and sizes the visible chart area from the cards actually being displayed.
+- Caps the visible chart height for complicated routes while retaining scrolling when additional vertical space is required.
+- Keeps relationship calculation, route grouping, common-ancestor family units and webtrees-native person cards unchanged.
+
 ## 0.1.0-alpha.6
 
 - Improves the pedigree-style relationship chart presentation without changing the relationship calculation engine.
