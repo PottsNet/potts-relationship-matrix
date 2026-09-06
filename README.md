@@ -15,17 +15,13 @@ The project is inspired by GeneWeb's Relation Matrix, but is implemented nativel
 - Show the closest relationship, relationship-route count, common-ancestor count and generation information in matrix cells.
 - Open a pair analysis showing grouped relationship routes.
 - Display pair relationships as a merged pedigree-style graphical relationship chart.
-- **Graph three or more selected people together** from the ancestor or ancestral family shared by everyone.
-- Draw the multi-person graph **top-down**, with shared ancestry at the top and descendants flowing down through generations.
-- Merge overlapping descendant branches rather than repeating the same person for each selected endpoint.
-- Label each selected person relative to **Person 1**, for example `elder brother`, `first cousin` or `second cousin`.
-- Keep the full matrix available for every pairwise relationship while using Person 1 as the uncluttered reference in the multi-person graph.
-- Switch between the nearest shared ancestor/family and additional shared ancestors.
-- Reuse webtrees' native person cards, including photographs, lifespan and configured chart-box facts.
-- Highlight common/shared ancestors and selected endpoints.
-- Show generation distance from shared ancestry to each selected person.
+- **Graph selected people** from an ancestor or ancestral family shared by everyone.
+- **Graph connected relationships** even when no single ancestor is shared by every selected person.
+- Draw multi-person graphs top-down and reuse webtrees' native person cards.
+- Merge overlapping descendant branches and repeated family connections.
+- Label selected people relative to **Person 1**, for example `elder brother`, `first cousin` or `second cousin`.
+- Distinguish parent-child descent from spouse/partner links in the connected graph.
 - Toggle photos, dates/places, relationship labels, ancestor highlighting and fit-to-width.
-- Show relationship cards at normal size by default, with scrolling for larger graphs; fit-to-width remains an explicit optional view.
 - Use webtrees relationship labels and privacy checks rather than maintaining a separate genealogy database.
 
 ## Relationship modes
@@ -54,13 +50,31 @@ Select at least three people and choose **Graph selected people**. The module ca
 
 The default **Nearest shared ancestor** mode selects the closest shared ancestor or ancestral family according to the generation distances from all selected people. If two ancestors are reached through the same descendant-family paths, they are grouped as one shared ancestral family — for example, a shared grandparent couple.
 
-The graph is drawn top-down. Shared ancestor cards appear at the top, subsequent generations are arranged on rows below them and the selected people appear further down the descendant branches. Intermediate people and overlapping branches are merged so the result behaves like one pedigree network rather than several pair charts placed beside each other.
+The graph is drawn top-down. Shared ancestor cards appear at the top, subsequent generations are arranged on rows below them and selected people appear further down the descendant branches. Intermediate people and overlapping branches are merged so the result behaves like one pedigree network rather than several pair charts placed beside each other.
 
-Relationship badges on selected people use **Person 1 as the reference**. This avoids trying to display every possible pairwise relationship on the graph. The matrix remains the authoritative place to inspect all pair-to-pair relationships.
+Relationship badges on selected people use **Person 1 as the reference**. This avoids trying to display every possible pairwise relationship on the graph. The matrix remains the place to inspect all pair-to-pair relationships.
 
 **More shared ancestors** can display additional shared ancestry groups within the current ancestor search limit. This is intended for exploring older common ancestry and pedigree-collapse situations and remains an alpha feature.
 
-For each shared ancestry group, the panel reports the generation distance to every selected person.
+## Connected relationship graph
+
+Choose **Graph connected relationships** when the selected people do not all descend from one common ancestor, or when you want to see how separate ancestral branches are joined through a marriage/partnership.
+
+The connected graph starts with Person 1 and merges the closest useful route from Person 1 to every other selected person. It prefers a blood/common-ancestor route where one exists. If there is no blood route, it falls back to the wider visible family graph, which can include spouse/partner connections.
+
+This means a Potts ancestry branch and a Madill ancestry branch can appear in the same graph and meet at the family of Charles Henry Lyle Potts and Annette Rita Madill without implying that the Madill descendant belongs to the Potts blood line.
+
+The graph uses:
+
+- **solid connectors** for parent-child descent;
+- **dashed connectors** for spouse/partner links;
+- blue outlines for selected people;
+- relationship labels relative to **Person 1**; and
+- `via <person>` summary text where the first branch person helps explain how a selected person connects to Person 1.
+
+Generation rows are solved from Person 1. Parent/child links change the generation by one while spouses/partners remain in the same generation. This lets separate ancestral branches remain aligned when they meet in a marriage.
+
+The connected graph is intentionally separate from **Shared ancestry graph**. A connected family network does not mean that every selected person shares the same ancestor.
 
 ## Requirements
 
@@ -88,9 +102,9 @@ Because this is an alpha, privacy behaviour should be tested while signed out an
 
 ## Status
 
-Current development version: `0.1.0-alpha.9`.
+Current development version: `0.1.0-alpha.10`.
 
-The multi-person graph currently chooses the shortest visible path from each selected person to each shared ancestor. More complex pedigree-collapse path selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
+The shared-ancestry and connected graphs currently choose the closest visible route needed for the requested view. More complex alternate-route selection, performance caching, relationship/kinship coefficients and release packaging remain planned follow-up work.
 
 ## Support
 
