@@ -34,7 +34,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     use ModuleCustomTrait;
     use ModuleChartTrait;
 
-    private const VERSION = '0.1.0-alpha.4';
+    private const VERSION = '0.1.0-alpha.5';
     private const GITHUB_REPO_URL = 'https://github.com/PottsNet/potts-relationship-matrix';
     private const LATEST_VERSION_URL = 'https://raw.githubusercontent.com/PottsNet/potts-relationship-matrix/main/latest-version.txt';
 
@@ -87,16 +87,12 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
 
     public function boot(): void
     {
-        // The core object is not registered as a separate webtrees module, so it
-        // needs the same internal module name before it generates routes or
-        // checks component access.
         $this->core->setName($this->name());
         $this->core->setEnabled($this->isEnabled());
         $this->core->boot();
 
         // RelationshipMatrixCore.php lives in /src, so its own __DIR__ points
-        // one level below the real module resources folder. Re-register the
-        // namespace from the public wrapper.
+        // one level below the real module resources folder.
         View::registerNamespace('potts-relationship-matrix', $this->resourcesFolder() . 'views/');
     }
 
@@ -166,7 +162,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
         }
 
         $this->layout = 'layouts/default';
-        $this->pushMatrixDisplayFixes();
+        $this->pushDisplayEnhancements($matrix_data, $scope, $detail);
 
         return $this->viewResponse('potts-relationship-matrix::page', [
             'title' => $this->title(),
@@ -189,17 +185,13 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     }
 
     /**
-     * Correct common-ancestor paths before asking webtrees to name them.
+     * Correct common-ancestor paths and group them into genealogical routes.
      *
-     * When two descendants reach the same ancestor through the same family, the
-     * raw ancestral merge contains FAM -> ancestor -> same FAM. For relationship
-     * naming that must collapse to one FAM link. Leaving the duplicate in place
-     * can turn full siblings into "half-brother" and produce unnecessarily long
-     * descriptions such as "grandfather's granddaughter".
-     *
-     * The raw nodes remain in $path['nodes'] so the graphical view can still show
-     * the common ancestor. $path['name_nodes'] contains the simplified path used
-     * only for relationship naming and step counts.
+     * Two paths through the two members of the same ancestral couple normally
+     * represent one relationship route, not two independent relationships. Once
+     * the common-ancestor pivot is normalised away, these paths have the same
+     * sequence of descendant families/people. That normalised sequence is our
+     * route signature.
      *
      * @param array{cells:array<int,array<int,array<string,mixed>|null>>,pairs:array<string,array<string,mixed>>} $matrix_data
      * @param array<int,Individual> $selected
@@ -235,7 +227,62 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
                 return $a_l1 <=> $b_l1;
             });
 
+            $routes = [];
+            $route_by_signature = [];
+            $all_common_ancestors = [];
+
+            foreach ($paths as $path_index => &$path) {
+                $name_nodes = is_array($path['name_nodes'] ?? null) ? $path['name_nodes'] : $path['nodes'];
+                $signature = implode('|', $name_nodes);
+
+                if (!array_key_exists($signature, $route_by_signature)) {
+                    $route_index = count($routes);
+                    $route_by_signature[$signature] = $route_index;
+                    $routes[$route_index] = [
+                        'name' => (string) $path['name'],
+                        'steps' => (int) $path['steps'],
+                        'l1' => $path['l1'] ?? null,
+                        'l2' => $path['l2'] ?? null,
+                        'name_nodes' => $name_nodes,
+                        'family_xref' => $this->routeFamilyXref($name_nodes, $path['l1'] ?? null, $path['l2'] ?? null),
+                        'common_ancestors' => [],
+                        'source_path_count' => 0,
+                        'contains_spouse_link' => false,
+                    ];
+                }
+
+                $route_index = $route_by_signature[$signature];
+                $path['route_index'] = $route_index;
+                $routes[$route_index]['source_path_count']++;
+
+                $ancestor_xref = is_string($path['common_ancestor_xref'] ?? null)
+                    ? (string) $path['common_ancestor_xref']
+                    : '';
+                $ancestor_name = is_string($path['common_ancestor_name'] ?? null)
+                    ? (string) $path['common_ancestor_name']
+                    : $ancestor_xref;
+
+                if ($ancestor_xref !== '') {
+                    $routes[$route_index]['common_ancestors'][$ancestor_xref] = [
+                        'xref' => $ancestor_xref,
+                        'name' => $ancestor_name,
+                    ];
+                    $all_common_ancestors[$ancestor_xref] = true;
+                }
+            }
+            unset($path);
+
+            foreach ($routes as &$route) {
+                $route['common_ancestors'] = array_values($route['common_ancestors']);
+                $route['common_ancestor_count'] = count($route['common_ancestors']);
+            }
+            unset($route);
+
             $result['paths'] = $paths;
+            $result['routes'] = array_values($routes);
+            $result['route_count'] = count($routes);
+            $result['common_ancestor_count'] = count($all_common_ancestors);
+            $result['raw_path_count'] = (int) ($result['path_count'] ?? count($paths));
             $matrix_data['pairs'][$key] = $result;
 
             [$left, $right] = array_map('intval', explode('-', $key, 2));
@@ -263,7 +310,7 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
                 $nodes[$i] === $ancestor_xref
                 && $nodes[$i - 1] === $nodes[$i + 1]
             ) {
-                // Keep the first family and remove "ancestor, duplicate family".
+                // Keep the family and remove "common ancestor, duplicate family".
                 return array_merge(
                     array_slice($nodes, 0, $i),
                     array_slice($nodes, $i + 2)
@@ -272,6 +319,21 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
         }
 
         return $nodes;
+    }
+
+    /** @param array<int,string> $name_nodes */
+    private function routeFamilyXref(array $name_nodes, mixed $l1, mixed $l2): ?string
+    {
+        if (!is_int($l1) || !is_int($l2) || $l1 <= 0 || $l2 <= 0) {
+            return null;
+        }
+
+        $family_index = 2 * $l1 - 1;
+        if ($family_index < 0 || !isset($name_nodes[$family_index])) {
+            return null;
+        }
+
+        return (string) $name_nodes[$family_index];
     }
 
     /** @return array<string,mixed> */
@@ -284,6 +346,8 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
                 'self' => false,
                 'name' => I18N::translate('No relationship found'),
                 'path_count' => 0,
+                'route_count' => 0,
+                'common_ancestor_count' => 0,
                 'steps' => null,
                 'notation' => '',
                 'pair_key' => $key,
@@ -305,11 +369,14 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
         }
 
         $notation = is_int($l1) && is_int($l2) ? $l1 . ' / ' . $l2 : '';
+        $route_count = (int) ($result['route_count'] ?? $result['path_count'] ?? 0);
 
         return [
             'self' => false,
             'name' => $name,
-            'path_count' => (int) $result['path_count'],
+            'path_count' => $route_count,
+            'route_count' => $route_count,
+            'common_ancestor_count' => (int) ($result['common_ancestor_count'] ?? 0),
             'steps' => (int) $closest['steps'],
             'notation' => $notation,
             'pair_key' => $key,
@@ -317,11 +384,13 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
     }
 
     /**
-     * Keep four-person matrices readable on laptop-width screens and prevent
-     * browsers from restoring a previous horizontal scroll position that hides
-     * the first relationship columns behind the sticky person-name column.
+     * The alpha view still uses the word "path" in a few places and indexes its
+     * graphical filter by raw ancestor paths. Enhance those elements at runtime
+     * while keeping the stable view file untouched during route-engine testing.
+     *
+     * @param array{cells:array<int,array<int,array<string,mixed>|null>>,pairs:array<string,array<string,mixed>>} $matrix_data
      */
-    private function pushMatrixDisplayFixes(): void
+    private function pushDisplayEnhancements(array $matrix_data, string $scope, ?array $detail): void
     {
         View::push('styles');
         echo <<<'HTML'
@@ -341,18 +410,286 @@ return new class($core) extends AbstractModule implements ModuleCustomInterface,
 .potts-rm-table-wrap {
     scrollbar-gutter: stable;
 }
+.potts-rm-family-unit-overlay {
+    fill: none;
+    stroke: var(--potts-rm-common, var(--bs-success, #198754));
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: .8;
+}
+.potts-rm-family-unit-junction {
+    fill: var(--potts-rm-common, var(--bs-success, #198754));
+    opacity: .85;
+}
 </style>
 HTML;
         View::endpush();
 
+        $matrix_meta = [];
+        if ($scope === 'blood') {
+            foreach ($matrix_data['cells'] as $row => $cells) {
+                foreach ($cells as $column => $cell) {
+                    if (!is_array($cell) || !empty($cell['self']) || (int) ($cell['route_count'] ?? 0) === 0) {
+                        continue;
+                    }
+
+                    $route_count = (int) $cell['route_count'];
+                    $ancestor_count = (int) ($cell['common_ancestor_count'] ?? 0);
+                    $text = I18N::plural(
+                        '%s relationship route',
+                        '%s relationship routes',
+                        $route_count,
+                        I18N::number($route_count)
+                    );
+
+                    if ($ancestor_count > 0) {
+                        $text .= ' · ' . I18N::plural(
+                            '%s common ancestor',
+                            '%s common ancestors',
+                            $ancestor_count,
+                            I18N::number($ancestor_count)
+                        );
+                    }
+
+                    if ((string) ($cell['notation'] ?? '') !== '') {
+                        $text .= ' · ' . (string) $cell['notation'];
+                    }
+
+                    $matrix_meta[$row][$column] = $text;
+                }
+            }
+        }
+
+        $detail_payload = null;
+        if ($scope === 'blood' && is_array($detail) && (int) ($detail['route_count'] ?? 0) > 0) {
+            $routes = [];
+            foreach (($detail['routes'] ?? []) as $route_index => $route) {
+                $ancestors = [];
+                foreach (($route['common_ancestors'] ?? []) as $ancestor) {
+                    if (is_array($ancestor)) {
+                        $ancestors[] = [
+                            'xref' => (string) ($ancestor['xref'] ?? ''),
+                            'name' => (string) ($ancestor['name'] ?? ''),
+                        ];
+                    }
+                }
+
+                $routes[] = [
+                    'index' => (int) $route_index,
+                    'name' => (string) ($route['name'] ?? I18N::translate('Related')),
+                    'steps' => (int) ($route['steps'] ?? 0),
+                    'l1' => is_int($route['l1'] ?? null) ? (int) $route['l1'] : null,
+                    'l2' => is_int($route['l2'] ?? null) ? (int) $route['l2'] : null,
+                    'family_xref' => is_string($route['family_xref'] ?? null) ? (string) $route['family_xref'] : null,
+                    'common_ancestors' => $ancestors,
+                    'source_path_count' => (int) ($route['source_path_count'] ?? 1),
+                ];
+            }
+
+            $route_count = (int) $detail['route_count'];
+            $ancestor_count = (int) ($detail['common_ancestor_count'] ?? 0);
+            $summary = I18N::plural(
+                '%s relationship route',
+                '%s relationship routes',
+                $route_count,
+                I18N::number($route_count)
+            );
+            if ($ancestor_count > 0) {
+                $summary .= ' · ' . I18N::plural(
+                    '%s common ancestor',
+                    '%s common ancestors',
+                    $ancestor_count,
+                    I18N::number($ancestor_count)
+                );
+            }
+
+            $detail_payload = [
+                'first_name' => (string) ($detail['first_name'] ?? ''),
+                'second_name' => (string) ($detail['second_name'] ?? ''),
+                'summary' => $summary,
+                'routes' => $routes,
+                'labels' => [
+                    'heading' => I18N::translate('Relationship routes'),
+                    'routes_to_display' => I18N::translate('Routes to display'),
+                    'all_routes' => I18N::translate('All grouped routes shown'),
+                    'routes_heading' => I18N::translate('Relationship routes'),
+                    'route' => I18N::translate('Route'),
+                    'family_step' => I18N::translate('family step'),
+                    'family_steps' => I18N::translate('family steps'),
+                    'common_ancestor' => I18N::translate('Common ancestor'),
+                    'common_ancestors' => I18N::translate('Common ancestors'),
+                ],
+            ];
+        }
+
+        $matrix_json = json_encode($matrix_meta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
+        $detail_json = json_encode($detail_payload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
+
         View::push('javascript');
-        echo <<<'HTML'
-<script>
+        echo '<script>(function(){"use strict";';
+        echo 'const matrixMeta=' . $matrix_json . ';';
+        echo 'const routeDetail=' . $detail_json . ';';
+        echo <<<'JS'
+
 document.querySelectorAll('.potts-rm-table-wrap').forEach(function (matrix) {
     matrix.scrollLeft = 0;
 });
-</script>
-HTML;
+
+if (matrixMeta && typeof matrixMeta === 'object') {
+    const rows = document.querySelectorAll('.potts-rm-table tbody tr');
+    Object.keys(matrixMeta).forEach(function (rowKey) {
+        const row = rows[Number(rowKey)];
+        if (!row) return;
+        const cells = row.querySelectorAll('td');
+        Object.keys(matrixMeta[rowKey]).forEach(function (columnKey) {
+            const cell = cells[Number(columnKey)];
+            if (!cell) return;
+            const meta = cell.querySelector('.potts-rm-cell-meta');
+            if (meta) meta.textContent = matrixMeta[rowKey][columnKey];
+        });
+    });
+}
+
+if (!routeDetail || !Array.isArray(routeDetail.routes)) {
+    return;
+}
+
+const detail = document.getElementById('potts-rm-detail');
+if (!detail) return;
+
+const heading = detail.querySelector('.potts-rm-detail-head h3');
+if (heading) {
+    heading.textContent = routeDetail.labels.heading + ': ' + routeDetail.first_name + ' → ' + routeDetail.second_name;
+}
+
+const summary = detail.querySelector('.potts-rm-detail-summary');
+if (summary) {
+    summary.textContent = routeDetail.summary;
+}
+
+const selector = document.getElementById('potts-rm-chart-paths');
+if (selector) {
+    const label = detail.querySelector('label[for="potts-rm-chart-paths"]');
+    if (label) label.textContent = routeDetail.labels.routes_to_display;
+    selector.value = 'all';
+    const mergedRoute = routeDetail.routes.some(route => Number(route.source_path_count || 0) > 1);
+    if (mergedRoute) {
+        selector.disabled = true;
+        Array.from(selector.options).forEach(option => {
+            if (option.value === 'all') option.textContent = routeDetail.labels.all_routes;
+        });
+    }
+}
+
+const pathGrid = detail.querySelector('.potts-rm-paths');
+if (pathGrid) {
+    const sectionHeading = pathGrid.previousElementSibling;
+    if (sectionHeading && /^H[1-6]$/.test(sectionHeading.tagName)) {
+        sectionHeading.textContent = routeDetail.labels.routes_heading;
+    }
+
+    pathGrid.innerHTML = '';
+    routeDetail.routes.forEach(function (route, index) {
+        const article = document.createElement('article');
+        article.className = 'potts-rm-path';
+
+        const title = document.createElement('div');
+        title.className = 'potts-rm-path-title';
+        title.textContent = routeDetail.labels.route + ' ' + (index + 1) + ' — ' + route.name;
+        article.appendChild(title);
+
+        const stepBadge = document.createElement('span');
+        stepBadge.className = 'potts-rm-badge';
+        const steps = Number(route.steps || 0);
+        stepBadge.textContent = steps + ' ' + (steps === 1 ? routeDetail.labels.family_step : routeDetail.labels.family_steps);
+        article.appendChild(stepBadge);
+
+        if (Number.isInteger(route.l1) && Number.isInteger(route.l2)) {
+            const generationBadge = document.createElement('span');
+            generationBadge.className = 'potts-rm-badge';
+            generationBadge.textContent = route.l1 + ' ↑ / ' + route.l2 + ' ↓';
+            article.appendChild(generationBadge);
+        }
+
+        if (Array.isArray(route.common_ancestors) && route.common_ancestors.length > 0) {
+            const ancestors = document.createElement('div');
+            ancestors.className = 'mt-2';
+            const strong = document.createElement('strong');
+            strong.textContent = (route.common_ancestors.length === 1 ? routeDetail.labels.common_ancestor : routeDetail.labels.common_ancestors) + ': ';
+            ancestors.appendChild(strong);
+            ancestors.appendChild(document.createTextNode(route.common_ancestors.map(ancestor => ancestor.name).join(' & ')));
+            article.appendChild(ancestors);
+        }
+
+        pathGrid.appendChild(article);
+    });
+}
+
+function drawFamilyUnits() {
+    const svg = document.getElementById('potts-rm-pedigree-connectors');
+    const cardsLayer = document.getElementById('potts-rm-pedigree-cards');
+    if (!svg || !cardsLayer) return;
+
+    svg.querySelectorAll('.potts-rm-family-unit-overlay, .potts-rm-family-unit-junction').forEach(node => node.remove());
+    const NS = 'http://www.w3.org/2000/svg';
+
+    routeDetail.routes.forEach(function (route) {
+        if (!route.family_xref || !Array.isArray(route.common_ancestors) || route.common_ancestors.length < 2) return;
+
+        const cards = route.common_ancestors
+            .map(ancestor => cardsLayer.querySelector('[data-node-id="I|' + CSS.escape(ancestor.xref) + '"]'))
+            .filter(card => card && card.style.display !== 'none');
+        if (cards.length < 2) return;
+
+        const positions = cards.map(card => ({
+            x: card.offsetLeft,
+            y: card.offsetTop,
+            width: card.offsetWidth,
+            height: card.offsetHeight,
+            cy: card.offsetTop + card.offsetHeight / 2
+        }));
+
+        const groupX = Math.min(...positions.map(pos => pos.x)) - 18;
+        const minY = Math.min(...positions.map(pos => pos.cy));
+        const maxY = Math.max(...positions.map(pos => pos.cy));
+        const middleY = (minY + maxY) / 2;
+
+        const spine = document.createElementNS(NS, 'path');
+        spine.setAttribute('class', 'potts-rm-family-unit-overlay');
+        spine.setAttribute('d', 'M ' + groupX + ' ' + minY + ' V ' + maxY);
+        svg.appendChild(spine);
+
+        positions.forEach(function (pos) {
+            const tick = document.createElementNS(NS, 'path');
+            tick.setAttribute('class', 'potts-rm-family-unit-overlay');
+            tick.setAttribute('d', 'M ' + groupX + ' ' + pos.cy + ' H ' + pos.x);
+            svg.appendChild(tick);
+        });
+
+        const junction = document.createElementNS(NS, 'circle');
+        junction.setAttribute('class', 'potts-rm-family-unit-junction');
+        junction.setAttribute('cx', String(groupX));
+        junction.setAttribute('cy', String(middleY));
+        junction.setAttribute('r', '4');
+        svg.appendChild(junction);
+    });
+}
+
+function scheduleFamilyUnits() {
+    window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(drawFamilyUnits);
+    });
+}
+
+['potts-rm-show-photos', 'potts-rm-show-details', 'potts-rm-highlight-common', 'potts-rm-fit-width'].forEach(function (id) {
+    const control = document.getElementById(id);
+    if (control) control.addEventListener('change', scheduleFamilyUnits);
+});
+window.addEventListener('resize', scheduleFamilyUnits);
+scheduleFamilyUnits();
+})();</script>
+JS;
         View::endpush();
     }
 
